@@ -44,6 +44,22 @@ EXPORT void subsystem4_test(void)
 		   imu_read_calibrated(&imu_data),
 		   "calibrated IMU X/Y/Z data can be read");
 
+	tm_printf((UB*)"[IMU] Keep board still on FLAT surface\n");
+	tk_dly_tsk(3000);
+
+	for (INT i = 0; i < 20; i++)
+	{
+		if (imu_read_calibrated(&imu_data))
+		{
+			tm_printf((UB*)"[IMU] X=%d Y=%d Z=%d\n",
+				  imu_data.x,
+				  imu_data.y,
+				  imu_data.z);
+		}
+
+		tk_dly_tsk(200);
+	}
+
 	TEST_SUMMARY("subsystem4");
 }
 
