@@ -6,6 +6,7 @@
  */
 
 #include "subsystem4.h"
+#include "drv_imu.h"
 #include "../test_report.h"
 
 #if APP_TEST
@@ -14,6 +15,7 @@ EXPORT void subsystem4_test(void)
 {
 	T_RMBF	rmbf;
 	UW	before;
+	IMU_DATA imu_data;
 
 	TEST_INIT();
 
@@ -29,6 +31,18 @@ EXPORT void subsystem4_test(void)
 	tk_dly_tsk(3500);
 	TEST_CHECK("INT-02", s4_lines_received >= before + 2,
 		   "summary lines flow from subsystem 3 to subsystem 4");
+
+	TEST_CHECK("S4-IMU01",
+		   imu_init(),
+		   "IMU initialises successfully");
+
+	TEST_CHECK("S4-IMU02",
+		   imu_calibrate(),
+		   "IMU calibration completes");
+
+	TEST_CHECK("S4-IMU03",
+		   imu_read_calibrated(&imu_data),
+		   "calibrated IMU X/Y/Z data can be read");
 
 	TEST_SUMMARY("subsystem4");
 }
