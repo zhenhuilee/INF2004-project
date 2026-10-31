@@ -1,45 +1,61 @@
 #include "drv_servo.h"
-#include "subsystem5.h"
 #include "subsystem5_config.h"
 
 #include <stdint.h>
-#include "hardware/gpio.h"
-#include "hardware/pwm.h"
 
-#define SERVO_MIN_US  500
-#define SERVO_MAX_US  2500
+/* RP2040 register addresses */
+#define SIO_BASE_ADDR       0xD0000000UL
+#define IO_BANK0_BASE_ADDR  0x40014000UL
+#define PADS_BANK0_BASE_ADDR 0x4001C000UL
+#define PWM_BASE_ADDR       0x40050000UL
+#define RESETS_BASE_ADDR    0x4000C000UL
 
-static uint servo_slice;
+#define GPIO_CTRL(gpio) \
+    (IO_BANK0_BASE_ADDR + 0x04 + ((gpio) * 8))
+
+#define PAD_GPIO(gpio) \
+    (PADS_BANK0_BASE_ADDR + 0x04 + ((gpio) * 4))
+
+#define PWM_CH7_CSR  (PWM_BASE_ADDR + 0x70)
+#define PWM_CH7_DIV  (PWM_BASE_ADDR + 0x74)
+#define PWM_CH7_TOP  (PWM_BASE_ADDR + 0x78)
+#define PWM_CH7_CC   (PWM_BASE_ADDR + 0x7C)
+
+#define REG32(addr) (*(volatile uint32_t *)(addr))
+
+#define SERVO_MIN_US 500
+#define SERVO_MAX_US 2500
 
 void servo_init(void)
 {
-    gpio_set_function(S5_SERVO_PIN, GPIO_FUNC_PWM);
+    /* Enable PWM function on the servo GPIO */
+    REG32(GPIO_CTRL(S5_SERVO_PIN)) = 4;
 
-    servo_slice = pwm_gpio_to_slice_num(S5_SERVO_PIN);
+    /* Enable PWM peripheral slice 3 (GP6/GP7) or slice 4 (GP8/GP9) */
+    /* GP8 uses PWM slice 4, channel A */
+    REG32(RESETS_BASE_ADDR + 0x0C) &= ~(1u << 14);
 
-    pwm_config config = pwm_get_default_config();
+    while ((REG32(RESETS_BASE_ADDR + 0x08) & (1u << 14)) == 0)
+    {
+        /* Wait for PWM peripheral reset to complete */
+    }
 
-    pwm_config_set_clkdiv(&config, 125.0f);
-    pwm_config_set_wrap(&config, 19999);
-
-    pwm_init(servo_slice, &config, true);
+    REG32(PWM_CH7_DIV) = 125u << 4;
+    REG32(PWM_CH7_TOP) = 19999;
+    REG32(PWM_CH7_CSR) = 1;
 
     servo_set_angle(90);
 }
 
 void servo_set_angle(int angle)
 {
-    if (angle < 0) {
-        angle = 0;
-    }
+    uint32_t pulse;
 
-    if (angle > 180) {
-        angle = 180;
-    }
+    if (angle < 0) angle = 0;
+    if (angle > 180) angle = 180;
 
-    uint32_t pulse =
-        SERVO_MIN_US +
-        ((SERVO_MAX_US - SERVO_MIN_US) * angle / 180);
+    pulse = SERVO_MIN_US +
+        ((SERVO_MAX_US - SERVO_MIN_US) * (uint32_t)angle / 180u);
 
-    pwm_set_gpio_level(S5_SERVO_PIN, pulse);
+    REG32(PWM_CH7_CC) = pulse;
 }
