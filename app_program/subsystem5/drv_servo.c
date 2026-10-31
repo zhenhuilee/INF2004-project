@@ -1,5 +1,6 @@
 #include "drv_servo.h"
 #include "subsystem5.h"
+#include "subsystem5_config.h"
 
 #include <stdint.h>
 #include "hardware/gpio.h"
