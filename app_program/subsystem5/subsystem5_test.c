@@ -1,14 +1,7 @@
 /*
- * subsystem5_test.c
- * On-target tests for subsystem 5: Adaptive Servo Ultrasonic Scanning.
- *
- * Tests:
- * S5-U01: Check that the test runs in a valid task context.
- * S5-U02: Check that the ultrasonic sensor can initialise.
- * S5-U03: Check that the servo can initialise.
- * S5-U04: Check that the ultrasonic sensor returns a valid reading.
- *
- * Built only with: make TEST=1
+ *	subsystem5_test.c
+ *	On-target tests for subsystem 5.  Built only with: make TEST=1
+ *	Record results in testing/subsystem5/TEST_LOG.md.  IDs: S5-U01, ...
  */
 
 #include "subsystem5.h"
