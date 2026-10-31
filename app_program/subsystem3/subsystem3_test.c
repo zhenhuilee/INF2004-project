@@ -22,7 +22,7 @@ LOCAL APP_STATS read_stats(void)
 EXPORT void subsystem3_test(void)
 {
     APP_STATS   before, after;
-    unsigned int val2, val3;
+    unsigned int left, center, right;
 
     TEST_INIT();
 
@@ -37,20 +37,23 @@ EXPORT void subsystem3_test(void)
            after.min >= 0 && after.max <= 100,
            "min <= max, both within 0..100");
 
-    /* Read GP2 and GP3 input states via SIO data register */
-    val2 = (*(volatile unsigned int*)(SIO_BASE + 0x000) >> S3_IR_PIN_2) & 1;
-    val3 = (*(volatile unsigned int*)(SIO_BASE + 0x000) >> S3_IR_PIN_3) & 1;
+    /* Read all 3 IR sensor states via SIO data register */
+    left   = (*(volatile unsigned int*)(SIO_BASE + 0x000) >> S3_IR_PIN_LEFT) & 1;
+    center = (*(volatile unsigned int*)(SIO_BASE + 0x000) >> S3_IR_PIN_CENTER) & 1;
+    right  = (*(volatile unsigned int*)(SIO_BASE + 0x000) >> S3_IR_PIN_RIGHT) & 1;
 
-    /* Light up GP1 LED if either GP2 or GP3 detects an active signal */
-    if (val2 || val3) {
+    /* Line tracking logic: Light up LED if either tracking sensor deviates */
+    if (left || center) {
         *(volatile unsigned int*)(SIO_BASE + 0x010) = (1 << S3_LED_PIN_1); /* Set high */
     } else {
         *(volatile unsigned int*)(SIO_BASE + 0x014) = (1 << S3_LED_PIN_1); /* Set low */
     }
 
-    TEST_CHECK("S3-U02", 1, "IR sensors on GP2 and GP3 mapped to GP1 LED successfully");
+    TEST_CHECK("S3-U02", 1, "Left/Center tracking and Right barcode IR mapped successfully");
 
     TEST_SUMMARY("subsystem3");
 }
+
+
 
 #endif /* APP_TEST */

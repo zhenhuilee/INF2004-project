@@ -27,14 +27,18 @@ EXPORT ER subsystem3_init(void)
         return mtx_stats;
     }
 
-    /* Configure GPIO hardware registers safely via micro T-Kernel base definitions */
-    /* Set GP2 and GP3 as inputs */
-    *(volatile unsigned int*)(IO_BANK0_BASE + 0x004 + (S3_IR_PIN_2 * 8)) = 5;
-    *(volatile unsigned int*)(IO_BANK0_BASE + 0x004 + (S3_IR_PIN_3 * 8)) = 5;
+    #define PADS_BANK0_BASE 0x4001c000
 
-    /* Set GP1 as output LED */
-    *(volatile unsigned int*)(IO_BANK0_BASE + 0x004 + (S3_LED_PIN_1 * 8)) = 5;
-    *(volatile unsigned int*)(SIO_BASE + 0x004) |= (1 << S3_LED_PIN_1); /* output enable */
+	/* Inside subsystem3_init: */
+	// Set function 5 (SIO) for GPIOs
+	*(volatile unsigned int*)(IO_BANK0_BASE + 0x004 + (S3_IR_PIN_LEFT * 8))   = 5;
+	*(volatile unsigned int*)(IO_BANK0_BASE + 0x004 + (S3_IR_PIN_CENTER * 8)) = 5;
+	*(volatile unsigned int*)(IO_BANK0_BASE + 0x004 + (S3_IR_PIN_RIGHT * 8))  = 5;
+
+	// Enable input (IE bit = 7th bit, i.e., 1 << 6) and disable output override on pads
+	*(volatile unsigned int*)(PADS_BANK0_BASE + 0x004 + (S3_IR_PIN_LEFT * 4))   = (1 << 6); // IE=1, OD=0
+	*(volatile unsigned int*)(PADS_BANK0_BASE + 0x004 + (S3_IR_PIN_CENTER * 4)) = (1 << 6);
+	*(volatile unsigned int*)(PADS_BANK0_BASE + 0x004 + (S3_IR_PIN_RIGHT * 4))  = (1 << 6);
 
     return E_OK;
 }

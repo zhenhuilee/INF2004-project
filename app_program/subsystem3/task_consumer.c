@@ -21,12 +21,28 @@ EXPORT void consumer_task(INT stacd, void *exinf)
 	(void)stacd; (void)exinf;
 
 	while (1) {
+
+		// TESTING PURPOSES ONLY FOR IR< REMOVE LATER,
+		unsigned int left, center, right;
+		left   = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_LEFT) & 1;
+		center = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_CENTER) & 1;
+		right  = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_RIGHT) & 1;
+
+		tm_putstring((const UB*)"[S3-DEBUG] IR Pins -> ");
+		UB debug_msg[40];
+		tm_sprintf(debug_msg, (const UB*)"L:%u C:%u R:%u\n", left, center, right);
+		tm_putstring(debug_msg);
+        /* ============================================== */
+
+
 		/* 1. Wait for the next sample (TMO_FEVR = wait forever) */
 		er = tk_rcv_mbx(mbx_samples, (T_MSG **)&msg, TMO_FEVR);
 		if (er < E_OK) {
 			CHECK(er, "tk_rcv_mbx");
 			continue;
 		}
+
+		
 
 		/* 2. Update the shared statistics.  Subsystem 4 reads them
 		      too, so lock the mutex around every access (IF-04). */
