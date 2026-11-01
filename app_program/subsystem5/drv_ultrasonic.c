@@ -3,74 +3,88 @@
 
 #include <stdint.h>
 
-#define SIO_BASE_ADDR 0xD0000000UL
-#define IO_BANK0_BASE_ADDR 0x40014000UL
-
-#define GPIO_CTRL(gpio) \
-    (IO_BANK0_BASE_ADDR + 0x04 + ((gpio) * 8))
-
 #define REG32(addr) (*(volatile uint32_t *)(addr))
 
-#define SIO_GPIO_IN  (SIO_BASE_ADDR + 0x04)
-#define SIO_GPIO_OUT_SET (SIO_BASE_ADDR + 0x14)
-#define SIO_GPIO_OUT_CLR (SIO_BASE_ADDR + 0x18)
-#define SIO_GPIO_OE_SET (SIO_BASE_ADDR + 0x24)
-#define SIO_GPIO_OE_CLR (SIO_BASE_ADDR + 0x28)
+#define TRIG_MASK (1u << S5_TRIG_PIN)
+#define ECHO_MASK (1u << S5_ECHO_PIN)
 
-static void delay_us(uint32_t us)
+#define ECHO_TIMEOUT_US 30000u
+
+static uint32_t timer_us(void)
 {
-    volatile uint32_t i;
+    return REG32(TIMER_TIMELR);
+}
 
-    while (us--)
+static void delay_us(uint32_t delay)
+{
+    uint32_t start = timer_us();
+
+    while ((uint32_t)(timer_us() - start) < delay)
     {
-        for (i = 0; i < 30; i++)
-        {
-            __asm volatile ("nop");
-        }
+        /* Wait */
     }
 }
 
 void ultrasonic_init(void)
 {
-    REG32(GPIO_CTRL(S5_TRIG_PIN)) = 5;
-    REG32(GPIO_CTRL(S5_ECHO_PIN)) = 5;
+    /* Configure Trigger as SIO */
+    REG32(GPIO_CTRL(S5_TRIG_PIN)) =
+        GPIO_CTRL_FUNCSEL_SIO;
 
-    REG32(SIO_GPIO_OE_SET) = 1u << S5_TRIG_PIN;
-    REG32(SIO_GPIO_OE_CLR) = 1u << S5_ECHO_PIN;
+    /* Configure Echo as SIO */
+    REG32(GPIO_CTRL(S5_ECHO_PIN)) =
+        GPIO_CTRL_FUNCSEL_SIO;
 
-    REG32(SIO_GPIO_OUT_CLR) = 1u << S5_TRIG_PIN;
+    /* Trigger output */
+    REG32(GPIO_OE_SET) = TRIG_MASK;
+
+    /* Echo input */
+    REG32(GPIO_OE_CLR) = ECHO_MASK;
+
+    REG32(GPIO_OUT_CLR) = TRIG_MASK;
 }
 
 float ultrasonic_get_distance(void)
 {
-    uint32_t timeout;
-    uint32_t pulse_length = 0;
-    uint32_t mask = 1u << S5_ECHO_PIN;
+    uint32_t start;
+    uint32_t pulse_start;
+    uint32_t pulse_end;
 
-    REG32(SIO_GPIO_OUT_CLR) = 1u << S5_TRIG_PIN;
+    /* Send trigger pulse */
+    REG32(GPIO_OUT_CLR) = TRIG_MASK;
     delay_us(2);
 
-    REG32(SIO_GPIO_OUT_SET) = 1u << S5_TRIG_PIN;
+    REG32(GPIO_OUT_SET) = TRIG_MASK;
     delay_us(10);
-    REG32(SIO_GPIO_OUT_CLR) = 1u << S5_TRIG_PIN;
 
-    timeout = 30000;
+    REG32(GPIO_OUT_CLR) = TRIG_MASK;
 
-    while ((REG32(SIO_GPIO_IN) & mask) == 0)
+    /* Wait for Echo HIGH */
+    start = timer_us();
+
+    while ((REG32(GPIO_IN) & ECHO_MASK) == 0)
     {
-        if (--timeout == 0)
+        if ((uint32_t)(timer_us() - start) >
+            ECHO_TIMEOUT_US)
+        {
             return -1.0f;
+        }
     }
 
-    timeout = 30000;
+    pulse_start = timer_us();
 
-    while (REG32(SIO_GPIO_IN) & mask)
+    /* Wait for Echo LOW */
+    while (REG32(GPIO_IN) & ECHO_MASK)
     {
-        pulse_length++;
-
-        if (--timeout == 0)
+        if ((uint32_t)(timer_us() - pulse_start) >
+            ECHO_TIMEOUT_US)
+        {
             return -1.0f;
+        }
     }
 
-    return (float)pulse_length / 58.0f;
+    pulse_end = timer_us();
+
+    /* Convert microseconds to centimetres */
+    return (float)(pulse_end - pulse_start) / 58.0f;
 }
