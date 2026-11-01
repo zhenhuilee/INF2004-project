@@ -75,4 +75,8 @@ float ultrasonic_get_distance(void)
 
     /* Convert echo duration to centimetres */
     return (float)(pulse_end - pulse_start) / 58.0f;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> ad5f3b971183bfa729648fedd3a386bc6c0c13fb
