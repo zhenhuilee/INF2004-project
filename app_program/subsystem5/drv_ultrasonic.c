@@ -27,15 +27,12 @@ static void delay_us(uint32_t delay)
 
 void ultrasonic_init(void)
 {
-    /* Configure trigger and echo pins as SIO */
     REG32(GPIO_CTRL(S5_TRIG_PIN)) = GPIO_CTRL_FUNCSEL_SIO;
     REG32(GPIO_CTRL(S5_ECHO_PIN)) = GPIO_CTRL_FUNCSEL_SIO;
 
-    /* Trigger = output, Echo = input */
     REG32(GPIO_OE_SET) = TRIG_MASK;
     REG32(GPIO_OE_CLR) = ECHO_MASK;
 
-    /* Trigger starts LOW */
     REG32(GPIO_OUT_CLR) = TRIG_MASK;
 }
 
@@ -45,7 +42,6 @@ float ultrasonic_get_distance(void)
     uint32_t pulse_start;
     uint32_t pulse_end;
 
-    /* Send 10 us trigger pulse */
     REG32(GPIO_OUT_CLR) = TRIG_MASK;
     delay_us(2);
 
@@ -53,7 +49,6 @@ float ultrasonic_get_distance(void)
     delay_us(10);
     REG32(GPIO_OUT_CLR) = TRIG_MASK;
 
-    /* Wait for Echo to become HIGH */
     start = timer_us();
 
     while ((REG32(GPIO_IN) & ECHO_MASK) == 0)
@@ -64,7 +59,6 @@ float ultrasonic_get_distance(void)
 
     pulse_start = timer_us();
 
-    /* Wait for Echo to become LOW */
     while ((REG32(GPIO_IN) & ECHO_MASK) != 0)
     {
         if ((uint32_t)(timer_us() - pulse_start) > ECHO_TIMEOUT_US)
@@ -73,10 +67,5 @@ float ultrasonic_get_distance(void)
 
     pulse_end = timer_us();
 
-    /* Convert echo duration to centimetres */
     return (float)(pulse_end - pulse_start) / 58.0f;
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> ad5f3b971183bfa729648fedd3a386bc6c0c13fb
