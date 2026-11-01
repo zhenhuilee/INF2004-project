@@ -1,6 +1,6 @@
-#include "drv_ultrasonic.h"
+#include "subsystem5.h"
 #include "subsystem5_config.h"
-
+#include "drv_ultrasonic.h"
 #include <stdint.h>
 
 #define REG32(addr) (*(volatile uint32_t *)(addr))
@@ -27,20 +27,15 @@ static void delay_us(uint32_t delay)
 
 void ultrasonic_init(void)
 {
-    /* Configure Trigger as SIO */
-    REG32(GPIO_CTRL(S5_TRIG_PIN)) =
-        GPIO_CTRL_FUNCSEL_SIO;
+    /* Configure trigger and echo pins as SIO */
+    REG32(GPIO_CTRL(S5_TRIG_PIN)) = GPIO_CTRL_FUNCSEL_SIO;
+    REG32(GPIO_CTRL(S5_ECHO_PIN)) = GPIO_CTRL_FUNCSEL_SIO;
 
-    /* Configure Echo as SIO */
-    REG32(GPIO_CTRL(S5_ECHO_PIN)) =
-        GPIO_CTRL_FUNCSEL_SIO;
-
-    /* Trigger output */
+    /* Trigger = output, Echo = input */
     REG32(GPIO_OE_SET) = TRIG_MASK;
-
-    /* Echo input */
     REG32(GPIO_OE_CLR) = ECHO_MASK;
 
+    /* Trigger starts LOW */
     REG32(GPIO_OUT_CLR) = TRIG_MASK;
 }
 
@@ -50,41 +45,34 @@ float ultrasonic_get_distance(void)
     uint32_t pulse_start;
     uint32_t pulse_end;
 
-    /* Send trigger pulse */
+    /* Send 10 us trigger pulse */
     REG32(GPIO_OUT_CLR) = TRIG_MASK;
     delay_us(2);
 
     REG32(GPIO_OUT_SET) = TRIG_MASK;
     delay_us(10);
-
     REG32(GPIO_OUT_CLR) = TRIG_MASK;
 
-    /* Wait for Echo HIGH */
+    /* Wait for Echo to become HIGH */
     start = timer_us();
 
     while ((REG32(GPIO_IN) & ECHO_MASK) == 0)
     {
-        if ((uint32_t)(timer_us() - start) >
-            ECHO_TIMEOUT_US)
-        {
+        if ((uint32_t)(timer_us() - start) > ECHO_TIMEOUT_US)
             return -1.0f;
-        }
     }
 
     pulse_start = timer_us();
 
-    /* Wait for Echo LOW */
-    while (REG32(GPIO_IN) & ECHO_MASK)
+    /* Wait for Echo to become LOW */
+    while ((REG32(GPIO_IN) & ECHO_MASK) != 0)
     {
-        if ((uint32_t)(timer_us() - pulse_start) >
-            ECHO_TIMEOUT_US)
-        {
+        if ((uint32_t)(timer_us() - pulse_start) > ECHO_TIMEOUT_US)
             return -1.0f;
-        }
     }
 
     pulse_end = timer_us();
 
-    /* Convert microseconds to centimetres */
+    /* Convert echo duration to centimetres */
     return (float)(pulse_end - pulse_start) / 58.0f;
 }
