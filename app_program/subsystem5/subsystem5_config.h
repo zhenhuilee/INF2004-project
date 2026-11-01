@@ -2,8 +2,8 @@
 #define SUBSYSTEM5_CONFIG_H
 
 /* HC-SR04 Ultrasonic Sensor */
-#define S5_TRIG_PIN  6
-#define S5_ECHO_PIN  7
+#define S5_TRIG_PIN  4
+#define S5_ECHO_PIN  5
 
 /* Servo Motor */
 #define S5_SERVO_PIN 8
