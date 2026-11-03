@@ -11,6 +11,28 @@ EXPORT ID	mbf_summary;	/* IF-03 */
 EXPORT ID	flg_events;	/* IF-03 */
 EXPORT ID	alm_monitor;
 
+EXPORT S4_TERRAIN_STATE s4_classify_terrain(INT y_value, INT flat_y)
+{
+	INT y_change = y_value - flat_y;
+
+	if (y_change < -1000)
+	{
+		return S4_TERRAIN_UPHILL;
+	}
+
+	if (y_change > 1000)
+	{
+		return S4_TERRAIN_DOWNHILL;
+	}
+
+	if (y_change > 300)
+	{
+		return S4_TERRAIN_PEAK;
+	}
+
+	return S4_TERRAIN_FLAT;
+}
+
 EXPORT ER subsystem4_init(void)
 {
 	T_CFLG	cflg = {0};
@@ -46,7 +68,20 @@ EXPORT ER subsystem4_init(void)
 
 EXPORT ER subsystem4_start(void)
 {
+	ID tid;
+
 	/* No affinity: the scheduler may run it on either core */
-	ID tid = app_start_task(monitor_task, S4_PRI_MONITOR, 0, "monitor_task");
-	return (tid < E_OK) ? tid : E_OK;
+	tid = app_start_task(monitor_task, S4_PRI_MONITOR, 0, "monitor_task");
+	if (tid < E_OK) {
+		return tid;
+	}
+
+#if !APP_TEST
+	tid = app_start_task(imu_task, S4_PRI_IMU, 0, "imu_task");
+	if (tid < E_OK) {
+		return tid;
+	}
+#endif
+
+	return E_OK;
 }

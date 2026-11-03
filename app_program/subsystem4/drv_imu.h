@@ -15,5 +15,7 @@ bool imu_init(void);
 bool imu_read(IMU_DATA *data);
 bool imu_calibrate(void);
 bool imu_read_calibrated(IMU_DATA *data);
+bool imu_read_filtered(IMU_DATA *data);
+bool imu_read_raw_filtered(IMU_DATA *data);
 
 #endif

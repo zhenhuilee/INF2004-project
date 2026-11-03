@@ -7,6 +7,7 @@
 #define IMU_CTRL_REG1 0x20
 #define IMU_OUT_X_L 0x28
 #define IMU_CALIBRATION_SAMPLES 100
+#define IMU_FILTER_SAMPLES 5
 
 static ID imu_i2c;
 static int16_t x_offset = 0;
@@ -108,6 +109,72 @@ bool imu_read_calibrated(IMU_DATA *data)
     data->x -= x_offset;
     data->y -= y_offset;
     data->z -= z_offset;
+
+    return true;
+}
+
+bool imu_read_filtered(IMU_DATA *data)
+{
+    IMU_DATA sample;
+    int32_t x_sum = 0;
+    int32_t y_sum = 0;
+    int32_t z_sum = 0;
+    int successful_samples = 0;
+
+    for (int i = 0; i < IMU_FILTER_SAMPLES; i++)
+    {
+        if (imu_read_calibrated(&sample))
+        {
+            x_sum += sample.x;
+            y_sum += sample.y;
+            z_sum += sample.z;
+            successful_samples++;
+        }
+
+        tk_dly_tsk(20);
+    }
+
+    if (successful_samples == 0)
+    {
+        return false;
+    }
+
+    data->x = (int16_t)(x_sum / successful_samples);
+    data->y = (int16_t)(y_sum / successful_samples);
+    data->z = (int16_t)(z_sum / successful_samples);
+
+    return true;
+}
+
+bool imu_read_raw_filtered(IMU_DATA *data)
+{
+    IMU_DATA sample;
+    int32_t x_sum = 0;
+    int32_t y_sum = 0;
+    int32_t z_sum = 0;
+    int successful_samples = 0;
+
+    for (int i = 0; i < IMU_FILTER_SAMPLES; i++)
+    {
+        if (imu_read(&sample))
+        {
+            x_sum += sample.x;
+            y_sum += sample.y;
+            z_sum += sample.z;
+            successful_samples++;
+        }
+
+        tk_dly_tsk(20);
+    }
+
+    if (successful_samples == 0)
+    {
+        return false;
+    }
+
+    data->x = (int16_t)(x_sum / successful_samples);
+    data->y = (int16_t)(y_sum / successful_samples);
+    data->z = (int16_t)(z_sum / successful_samples);
 
     return true;
 }

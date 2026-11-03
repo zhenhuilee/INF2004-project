@@ -11,11 +11,41 @@
 
 #if APP_TEST
 
+static INT flat_y;
+
+static void collect_imu_stage(const char *stage)
+{
+	IMU_DATA imu_data;
+	S4_TERRAIN_STATE terrain;
+
+	tm_printf((UB*)"\n[IMU] Place board at: %s\n", stage);
+	tm_printf((UB*)"[IMU] Recording starts in 15 seconds...\n");
+	tk_dly_tsk(15000);
+
+	for (INT i = 0; i < 10; i++)
+	{
+		if (imu_read_filtered(&imu_data))
+		{
+			terrain = s4_classify_terrain(imu_data.y, flat_y);
+
+			tm_printf((UB*)"[IMU][%s] X=%d Y=%d Z=%d STATE=%d\n",
+				  stage,
+				  imu_data.x,
+				  imu_data.y,
+				  imu_data.z,
+				  terrain);
+		}
+
+		tk_dly_tsk(200);
+	}
+}
+
 EXPORT void subsystem4_test(void)
 {
 	T_RMBF	rmbf;
 	UW	before;
 	IMU_DATA imu_data;
+	bool baseline_ok;
 
 	TEST_INIT();
 
@@ -36,6 +66,9 @@ EXPORT void subsystem4_test(void)
 		   imu_init(),
 		   "IMU initialises successfully");
 
+	tm_printf((UB*)"\n[IMU] Keep board FLAT on the table\n");
+	tm_printf((UB*)"[IMU] Calibrating...\n");
+
 	TEST_CHECK("S4-IMU02",
 		   imu_calibrate(),
 		   "IMU calibration completes");
@@ -44,21 +77,57 @@ EXPORT void subsystem4_test(void)
 		   imu_read_calibrated(&imu_data),
 		   "calibrated IMU X/Y/Z data can be read");
 
-	tm_printf((UB*)"[IMU] Keep board still on FLAT surface\n");
-	tk_dly_tsk(3000);
+	TEST_CHECK("S4-IMU04",
+		   imu_read_filtered(&imu_data),
+		   "filtered IMU X/Y/Z data can be read");
 
-	for (INT i = 0; i < 20; i++)
+	tm_printf((UB*)"\n[IMU] Capturing flat baseline...\n");
+	tk_dly_tsk(1000);
+
+	baseline_ok = imu_read_filtered(&imu_data);
+
+	if (baseline_ok)
 	{
-		if (imu_read_calibrated(&imu_data))
-		{
-			tm_printf((UB*)"[IMU] X=%d Y=%d Z=%d\n",
-				  imu_data.x,
-				  imu_data.y,
-				  imu_data.z);
-		}
-
-		tk_dly_tsk(200);
+		flat_y = imu_data.y;
+		tm_printf((UB*)"[IMU] FLAT BASELINE Y=%d\n", flat_y);
 	}
+
+	TEST_CHECK("S4-IMU05",
+		   baseline_ok,
+		   "flat baseline captured");
+
+	TEST_CHECK("S4-IMU06",
+		   baseline_ok &&
+		   s4_classify_terrain(flat_y, flat_y) == S4_TERRAIN_FLAT,
+		   "baseline classified as FLAT");
+
+	TEST_CHECK("S4-IMU07",
+		   s4_classify_terrain(flat_y - 1500, flat_y) ==
+		   S4_TERRAIN_UPHILL,
+		   "negative Y change classified as UPHILL");
+
+	TEST_CHECK("S4-IMU08",
+		   s4_classify_terrain(flat_y + 550, flat_y) ==
+		   S4_TERRAIN_PEAK,
+		   "moderate positive Y change classified as PEAK");
+
+	TEST_CHECK("S4-IMU09",
+		   s4_classify_terrain(flat_y + 1800, flat_y) ==
+		   S4_TERRAIN_DOWNHILL,
+		   "large positive Y change classified as DOWNHILL");
+
+	tm_printf((UB*)"\n[IMU] LIVE TERRAIN CLASSIFICATION START\n");
+	tm_printf((UB*)"[IMU] Flat baseline Y=%d\n", flat_y);
+	tm_printf((UB*)"[IMU] STATE: 0=FLAT 1=UPHILL 2=PEAK 3=DOWNHILL\n");
+	tm_printf((UB*)"[IMU] Keep the IMU orientation consistent\n");
+
+	collect_imu_stage("FLAT_START");
+	collect_imu_stage("UPHILL");
+	collect_imu_stage("PEAK");
+	collect_imu_stage("DOWNHILL");
+	collect_imu_stage("FLAT_END");
+
+	tm_printf((UB*)"\n[IMU] LIVE TERRAIN CLASSIFICATION COMPLETE\n");
 
 	TEST_SUMMARY("subsystem4");
 }
