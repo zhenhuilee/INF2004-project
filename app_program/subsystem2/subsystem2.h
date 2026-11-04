@@ -45,6 +45,6 @@ IMPORT INT	s2_make_value(UW seq);
 #define S2_PATH_UNKNOWN     2
 
 IMPORT void s2_set_obstacle_status(INT status);
-IMPORT void motor_task(INT stacd, void *exinf)
+IMPORT void motor_task(INT stacd, void *exinf);
 
 #endif /* SUBSYSTEM2_H */
