@@ -39,4 +39,12 @@ IMPORT ID	mpf_samples;
 IMPORT void	producer_task(INT stacd, void *exinf);
 IMPORT INT	s2_make_value(UW seq);
 
+/* Buddy 5 obstacle status interface */
+#define S2_PATH_CLEAR       0
+#define S2_PATH_OBSTACLE    1
+#define S2_PATH_UNKNOWN     2
+
+IMPORT void s2_set_obstacle_status(INT status);
+IMPORT void motor_task(INT stacd, void *exinf)
+
 #endif /* SUBSYSTEM2_H */
