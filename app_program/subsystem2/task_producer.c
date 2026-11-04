@@ -36,7 +36,7 @@ EXPORT void producer_task(INT stacd, void *exinf)
 
 	motor_init();
 
-	/*motor_forward();
+	motor_forward();
 	tk_dly_tsk(5000);
 
 	motor_stop();
@@ -57,7 +57,7 @@ EXPORT void producer_task(INT stacd, void *exinf)
 	motor_turn_left();
 	tk_dly_tsk(200);
 
-	motor_stop();*/
+	motor_stop();
 
     /* ==================================
        ORIGINAL PRODUCER TASK
