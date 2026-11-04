@@ -38,29 +38,8 @@ EXPORT ER subsystem2_init(void)
 
 EXPORT ER subsystem2_start(void)
 {
-    ID tid;
-
-    /* Start the existing producer task */
-    tid = app_start_task(
-        (FP)producer_task,
-        S2_PRI_PRODUCER,
-        TP_PRC2,
-        "producer_task"
-    );
-
-    if (tid < E_OK)
-        return tid;
-
-    /* Start the motor control task */
-    tid = app_start_task(
-        (FP)motor_task,
-        15,
-        TP_PRC2,
-        "motor_task"
-    );
-
-    if (tid < E_OK)
-        return tid;
-
-    return E_OK;
+	/* Pinned to core 1 (TP_PRC2): samples cross to subsystem 3 on core 0 */
+	ID tid = app_start_task(producer_task, S2_PRI_PRODUCER, TP_PRC2,
+				"producer_task");
+	return (tid < E_OK) ? tid : E_OK;
 }
