@@ -16,7 +16,7 @@ static int16_t z_offset = 0;
 
 bool imu_init(void)
 {
-    imu_i2c = tk_opn_dev((UB *)"iicb", TD_UPDATE);
+    imu_i2c = tk_opn_dev((UB *)"iica", TD_UPDATE);
 
     if (imu_i2c < E_OK)
     {

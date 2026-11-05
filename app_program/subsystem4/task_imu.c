@@ -223,9 +223,9 @@ static void preparation_countdown(const char *action)
 	tm_printf((UB*)"NEXT ACTION: %s\n", action);
 	tm_printf((UB*)"========================================\n");
 	tm_printf((UB*)"DO NOT MOVE YET.\n");
-	tm_printf((UB*)"You have 15 seconds to get ready.\n\n");
+	tm_printf((UB*)"You have 5 seconds to get ready.\n\n");
 
-	for (i = 15; i > 0; i--)
+	for (i = 5; i > 0; i--)
 	{
 		tm_printf((UB*)"%d...\n", i);
 		tk_dly_tsk(1000);
@@ -302,11 +302,11 @@ EXPORT void imu_task(INT stacd, void *exinf)
 	tm_printf((UB*)"FIRST: PLACE ROBOT COMPLETELY FLAT\n");
 	tm_printf((UB*)"DO NOT MOVE IT DURING CALIBRATION\n");
 	tm_printf((UB*)"\n");
-	tm_printf((UB*)"Calibration starts in 15 seconds.\n");
+	tm_printf((UB*)"Calibration starts in 5 seconds.\n");
 	tm_printf((UB*)"Use this time to position the robot.\n");
 	tm_printf((UB*)"========================================\n\n");
 
-	for (i = 15; i > 0; i--)
+	for (i = 5; i > 0; i--)
 	{
 		tm_printf((UB*)"%d...\n", i);
 		tk_dly_tsk(1000);
