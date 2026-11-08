@@ -10,6 +10,12 @@
 #define IMU_FILTER_SAMPLES 5
 #define IMU_CTRL_REG1_100HZ 0x57
 
+#define IMU_MAG_ADDRESS 0x1E
+#define IMU_MAG_CRA_REG 0x00
+#define IMU_MAG_CRB_REG 0x01
+#define IMU_MAG_MR_REG 0x02
+#define IMU_MAG_OUT_X_H 0x03
+
 static ID imu_i2c;
 static int16_t x_offset = 0;
 static int16_t y_offset = 0;
@@ -30,6 +36,78 @@ bool imu_init(void)
         IMU_CTRL_REG1,
         IMU_CTRL_REG1_100HZ
     ) == E_OK;
+}
+
+bool imu_magnetometer_init(void)
+{
+    if (i2c_write_reg(
+        imu_i2c,
+        IMU_MAG_ADDRESS,
+        IMU_MAG_CRA_REG,
+        0x14
+    ) < E_OK)
+    {
+        return false;
+    }
+
+    if (i2c_write_reg(
+        imu_i2c,
+        IMU_MAG_ADDRESS,
+        IMU_MAG_CRB_REG,
+        0x20
+    ) < E_OK)
+    {
+        return false;
+    }
+
+    return i2c_write_reg(
+        imu_i2c,
+        IMU_MAG_ADDRESS,
+        IMU_MAG_MR_REG,
+        0x00
+    ) == E_OK;
+}
+
+bool imu_read_magnetometer(IMU_DATA *data)
+{
+    uint8_t reg = IMU_MAG_OUT_X_H;
+    uint8_t raw[6];
+    T_I2C_EXEC exec;
+    SZ asz;
+    ER result;
+
+    exec.sadr = IMU_MAG_ADDRESS;
+    exec.snd_size = 1;
+    exec.snd_data = &reg;
+    exec.rcv_size = 6;
+    exec.rcv_data = raw;
+
+    result = tk_swri_dev(
+        imu_i2c,
+        TDN_I2C_EXEC,
+        &exec,
+        sizeof(T_I2C_EXEC),
+        &asz
+    );
+
+    if (result < E_OK)
+    {
+        return false;
+    }
+
+    data->x = (int16_t)(
+        ((uint16_t)raw[0] << 8) | raw[1]
+    );
+
+    data->z = (int16_t)(
+        ((uint16_t)raw[2] << 8) | raw[3]
+    );
+
+    data->y = (int16_t)(
+        ((uint16_t)raw[4] << 8) | raw[5]
+    );
+
+    return true;
 }
 
 bool imu_read(IMU_DATA *data)
@@ -58,9 +136,17 @@ bool imu_read(IMU_DATA *data)
         return false;
     }
 
-    data->x = (int16_t)(((uint16_t)raw[1] << 8) | raw[0]);
-    data->y = (int16_t)(((uint16_t)raw[3] << 8) | raw[2]);
-    data->z = (int16_t)(((uint16_t)raw[5] << 8) | raw[4]);
+    data->x = (int16_t)(
+        ((uint16_t)raw[1] << 8) | raw[0]
+    );
+
+    data->y = (int16_t)(
+        ((uint16_t)raw[3] << 8) | raw[2]
+    );
+
+    data->z = (int16_t)(
+        ((uint16_t)raw[5] << 8) | raw[4]
+    );
 
     return true;
 }
@@ -93,9 +179,14 @@ bool imu_calibrate(void)
         return false;
     }
 
-    x_offset = (int16_t)(x_sum / successful_samples);
-    y_offset = (int16_t)(y_sum / successful_samples);
-    z_offset = (int16_t)(z_sum / successful_samples);
+    x_offset =
+        (int16_t)(x_sum / successful_samples);
+
+    y_offset =
+        (int16_t)(y_sum / successful_samples);
+
+    z_offset =
+        (int16_t)(z_sum / successful_samples);
 
     return true;
 }
@@ -122,7 +213,9 @@ bool imu_read_filtered(IMU_DATA *data)
     int32_t z_sum = 0;
     int successful_samples = 0;
 
-    for (int i = 0; i < IMU_FILTER_SAMPLES; i++)
+    for (int i = 0;
+         i < IMU_FILTER_SAMPLES;
+         i++)
     {
         if (imu_read_calibrated(&sample))
         {
@@ -140,9 +233,14 @@ bool imu_read_filtered(IMU_DATA *data)
         return false;
     }
 
-    data->x = (int16_t)(x_sum / successful_samples);
-    data->y = (int16_t)(y_sum / successful_samples);
-    data->z = (int16_t)(z_sum / successful_samples);
+    data->x =
+        (int16_t)(x_sum / successful_samples);
+
+    data->y =
+        (int16_t)(y_sum / successful_samples);
+
+    data->z =
+        (int16_t)(z_sum / successful_samples);
 
     return true;
 }
@@ -155,7 +253,9 @@ bool imu_read_raw_filtered(IMU_DATA *data)
     int32_t z_sum = 0;
     int successful_samples = 0;
 
-    for (int i = 0; i < IMU_FILTER_SAMPLES; i++)
+    for (int i = 0;
+         i < IMU_FILTER_SAMPLES;
+         i++)
     {
         if (imu_read(&sample))
         {
@@ -173,9 +273,14 @@ bool imu_read_raw_filtered(IMU_DATA *data)
         return false;
     }
 
-    data->x = (int16_t)(x_sum / successful_samples);
-    data->y = (int16_t)(y_sum / successful_samples);
-    data->z = (int16_t)(z_sum / successful_samples);
+    data->x =
+        (int16_t)(x_sum / successful_samples);
+
+    data->y =
+        (int16_t)(y_sum / successful_samples);
+
+    data->z =
+        (int16_t)(z_sum / successful_samples);
 
     return true;
 }

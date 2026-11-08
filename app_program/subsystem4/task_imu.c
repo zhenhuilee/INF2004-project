@@ -33,7 +33,13 @@
 #define S4_RUNTIME_FILTER_SAMPLES		10
 #define S4_RUNTIME_SAMPLE_DELAY_MS		10
 
+#define S4_TURN_CHANGE_THRESHOLD		3
+#define S4_TURN_CONFIRM_SAMPLES		2
+#define S4_TURN_END_SAMPLES			3
+#define S4_TURN_RATE_REPORT_SAMPLES		5
+
 static S4_IMU_STATUS imu_status;
+EXPORT S4_MOTION_STATUS s4_motion_status;
 
 static UB motion_state;
 static IMU_DATA previous_motion_sample;
@@ -44,6 +50,13 @@ static INT stationary_count;
 static IMU_DATA previous_impact_sample;
 static BOOL impact_sample_valid;
 static INT impact_cooldown;
+
+static INT previous_heading;
+static BOOL heading_sample_valid;
+static BOOL turning_active;
+static INT turning_count;
+static INT turn_end_count;
+static INT turn_rate_report_count;
 
 typedef struct
 {
@@ -90,6 +103,30 @@ static UW sample_change_squared(
 	return x_squared + y_squared + z_squared;
 }
 
+static void update_motion_status(UB bit, BOOL active)
+{
+	S4_MOTION_STATUS new_status = s4_motion_status;
+
+	if (active)
+		new_status |= bit;
+	else
+		new_status &= (S4_MOTION_STATUS)(~bit);
+
+	new_status &= S4_MOTION_BITS;
+
+	if (new_status != s4_motion_status)
+	{
+		s4_motion_status = new_status;
+		tm_printf(
+			(UB*)"imu: MOTION STATUS = 0x%02X accelerating=%d turning=%d impact=%d\n",
+			s4_motion_status,
+			(s4_motion_status & S4_MOTION_ACCEL_BIT) ? 1 : 0,
+			(s4_motion_status & S4_MOTION_TURN_BIT) ? 1 : 0,
+			(s4_motion_status & S4_MOTION_IMPACT_BIT) ? 1 : 0
+		);
+	}
+}
+
 static void motion_classifier_reset(void)
 {
 	motion_state = S4_MOTION_UNKNOWN;
@@ -109,12 +146,16 @@ static void report_motion_state(UB new_state)
 
 	if (motion_state == S4_MOTION_ACCELERATING)
 	{
+		update_motion_status(S4_MOTION_ACCEL_BIT, TRUE);
+
 		tm_printf(
 			(UB*)"imu: MOTION = ACCELERATING\n"
 		);
 	}
 	else
 	{
+		update_motion_status(S4_MOTION_ACCEL_BIT, FALSE);
+
 		tm_printf(
 			(UB*)"imu: MOTION = STATIONARY\n"
 		);
@@ -230,11 +271,20 @@ static void update_impact_detector(IMU_DATA *current)
 	if (impact_cooldown > 0)
 	{
 		impact_cooldown--;
+
+		if (impact_cooldown == 0)
+			update_motion_status(S4_MOTION_IMPACT_BIT, FALSE);
+
 		return;
 	}
 
 	if (max_axis_delta > S4_IMPACT_AXIS_THRESHOLD)
 	{
+		update_motion_status(
+			S4_MOTION_IMPACT_BIT,
+			TRUE
+		);
+
 		tm_printf(
 			(UB*)"imu: MOTION EVENT = SUDDEN IMPACT "
 			"axis_delta=%u\n",
@@ -736,6 +786,127 @@ static void motion_verification_test(void)
 	);
 }
 
+
+static INT heading_change_deg(INT previous, INT current)
+{
+	INT change = current - previous;
+
+	if (change > 180)
+	{
+		change -= 360;
+	}
+	else if (change < -180)
+	{
+		change += 360;
+	}
+
+	return change;
+}
+
+static void turning_detector_reset(void)
+{
+	previous_heading = 0;
+	heading_sample_valid = FALSE;
+	turning_active = FALSE;
+	turning_count = 0;
+	turn_end_count = 0;
+	turn_rate_report_count = 0;
+}
+
+static void update_turning_detector(IMU_DATA *mag_data)
+{
+	INT current_heading;
+	INT change;
+	INT abs_change;
+	INT turn_rate;
+
+	current_heading =
+		approximate_angle_deg(
+			mag_data->y,
+			mag_data->x
+		);
+
+	if (!heading_sample_valid)
+	{
+		previous_heading = current_heading;
+		heading_sample_valid = TRUE;
+		return;
+	}
+
+	change = heading_change_deg(
+		previous_heading,
+		current_heading
+	);
+
+	previous_heading = current_heading;
+	abs_change = abs_int(change);
+	turn_rate = abs_change * 10;
+
+	if (abs_change >= S4_TURN_CHANGE_THRESHOLD)
+	{
+		turning_count++;
+		turn_end_count = 0;
+
+		if (!turning_active &&
+		    turning_count >= S4_TURN_CONFIRM_SAMPLES)
+		{
+			turning_active = TRUE;
+			turn_rate_report_count = 0;
+			update_motion_status(S4_MOTION_TURN_BIT, TRUE);
+
+			tm_printf(
+				(UB*)"imu: MOTION EVENT = TURNING\n"
+			);
+
+			tm_printf(
+				(UB*)"imu: TURN RATE = %d deg/s\n",
+				turn_rate
+			);
+		}
+		else if (turning_active)
+		{
+			turn_rate_report_count++;
+
+			if (turn_rate_report_count >=
+			    S4_TURN_RATE_REPORT_SAMPLES)
+			{
+				tm_printf(
+					(UB*)"imu: TURN RATE = %d deg/s\n",
+					turn_rate
+				);
+
+				turn_rate_report_count = 0;
+			}
+		}
+
+		if (turning_count > S4_TURN_CONFIRM_SAMPLES)
+		{
+			turning_count = S4_TURN_CONFIRM_SAMPLES;
+		}
+	}
+	else
+	{
+		turning_count = 0;
+
+		if (turning_active)
+		{
+			turn_end_count++;
+
+			if (turn_end_count >= S4_TURN_END_SAMPLES)
+			{
+				turning_active = FALSE;
+				turn_end_count = 0;
+				turn_rate_report_count = 0;
+				update_motion_status(S4_MOTION_TURN_BIT, FALSE);
+
+				tm_printf(
+					(UB*)"imu: MOTION EVENT = TURN END\n"
+				);
+			}
+		}
+	}
+}
+
 EXPORT void imu_task(
 	INT stacd,
 	void *exinf
@@ -743,6 +914,7 @@ EXPORT void imu_task(
 {
 	IMU_DATA imu_data;
 	IMU_DATA raw_data;
+	IMU_DATA mag_data;
 	S4_RAW_RANGE raw_range;
 
 	INT flat_y;
@@ -765,6 +937,7 @@ EXPORT void imu_task(
 	(void)exinf;
 
 	imu_status = 0xFF;
+	s4_motion_status = 0;
 
 	if (!imu_init())
 	{
@@ -775,6 +948,20 @@ EXPORT void imu_task(
 
 		tm_printf(
 			(UB*)"imu: initialisation failed\n"
+		);
+
+		return;
+	}
+
+	if (!imu_magnetometer_init())
+	{
+		update_imu_status(
+			S4_TERRAIN_FLAT,
+			TRUE
+		);
+
+		tm_printf(
+			(UB*)"imu: magnetometer initialisation failed\n"
 		);
 
 		return;
@@ -882,6 +1069,7 @@ EXPORT void imu_task(
 
 	motion_verification_test();
 
+
 	/*
 	 * Reset after the guided verification so normal operation begins
 	 * with a fresh previous sample.
@@ -916,6 +1104,7 @@ EXPORT void imu_task(
 	 */
 	flat_y = raw_data.y;
 	impact_detector_reset();
+	turning_detector_reset();
 
 	tm_printf((UB*)"\n");
 
@@ -1031,6 +1220,11 @@ EXPORT void imu_task(
 		 * processing while the impact detector sees every raw sample.
 		 */
 		update_motion_classifier(&imu_data);
+
+		if (imu_read_magnetometer(&mag_data))
+		{
+			update_turning_detector(&mag_data);
+		}
 
 		y_change =
 			imu_data.y - flat_y;
