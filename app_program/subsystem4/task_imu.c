@@ -28,6 +28,11 @@
 #define S4_ACCEL_CONFIRM_SAMPLES		1
 #define S4_STATIONARY_CONFIRM_SAMPLES		4
 
+#define S4_IMPACT_AXIS_THRESHOLD		10000U
+#define S4_IMPACT_COOLDOWN_SAMPLES		100
+#define S4_RUNTIME_FILTER_SAMPLES		10
+#define S4_RUNTIME_SAMPLE_DELAY_MS		10
+
 static S4_IMU_STATUS imu_status;
 
 static UB motion_state;
@@ -35,6 +40,10 @@ static IMU_DATA previous_motion_sample;
 static BOOL motion_sample_valid;
 static INT acceleration_count;
 static INT stationary_count;
+
+static IMU_DATA previous_impact_sample;
+static BOOL impact_sample_valid;
+static INT impact_cooldown;
 
 typedef struct
 {
@@ -163,6 +172,76 @@ static void update_motion_classifier(IMU_DATA *current)
 			stationary_count =
 				S4_STATIONARY_CONFIRM_SAMPLES;
 		}
+	}
+}
+
+static UW axis_change(INT previous, INT current)
+{
+	INT difference;
+
+	difference = current - previous;
+
+	if (difference < 0)
+	{
+		difference = -difference;
+	}
+
+	return (UW)difference;
+}
+
+static void impact_detector_reset(void)
+{
+	impact_sample_valid = FALSE;
+	impact_cooldown = 0;
+}
+
+static void update_impact_detector(IMU_DATA *current)
+{
+	UW delta_x;
+	UW delta_y;
+	UW delta_z;
+	UW max_axis_delta;
+
+	if (!impact_sample_valid)
+	{
+		previous_impact_sample = *current;
+		impact_sample_valid = TRUE;
+		return;
+	}
+
+	delta_x = axis_change(previous_impact_sample.x, current->x);
+	delta_y = axis_change(previous_impact_sample.y, current->y);
+	delta_z = axis_change(previous_impact_sample.z, current->z);
+
+	previous_impact_sample = *current;
+
+	max_axis_delta = delta_x;
+
+	if (delta_y > max_axis_delta)
+	{
+		max_axis_delta = delta_y;
+	}
+
+	if (delta_z > max_axis_delta)
+	{
+		max_axis_delta = delta_z;
+	}
+
+	if (impact_cooldown > 0)
+	{
+		impact_cooldown--;
+		return;
+	}
+
+	if (max_axis_delta > S4_IMPACT_AXIS_THRESHOLD)
+	{
+		tm_printf(
+			(UB*)"imu: MOTION EVENT = SUDDEN IMPACT "
+			"axis_delta=%u\n",
+			max_axis_delta
+		);
+
+		impact_cooldown = S4_IMPACT_COOLDOWN_SAMPLES;
 	}
 }
 
@@ -674,6 +753,10 @@ EXPORT void imu_task(
 	INT transition_count = 0;
 	INT progress_count = 0;
 	INT i;
+	INT runtime_samples = 0;
+	int32_t runtime_x_sum = 0;
+	int32_t runtime_y_sum = 0;
+	int32_t runtime_z_sum = 0;
 
 	S4_TERRAIN_STATE state =
 		S4_TERRAIN_FLAT;
@@ -826,6 +909,14 @@ EXPORT void imu_task(
 		raw_data.z
 	);
 
+	/*
+	 * Runtime processing uses averaged raw samples.  Constant calibration
+	 * offsets cancel in both terrain changes and consecutive-sample motion
+	 * changes, so the raw flat reference is the matching runtime baseline.
+	 */
+	flat_y = raw_data.y;
+	impact_detector_reset();
+
 	tm_printf((UB*)"\n");
 
 	tm_printf(
@@ -897,27 +988,59 @@ EXPORT void imu_task(
 
 	while (1)
 	{
-		if (imu_read_filtered(&imu_data))
+		if (!imu_read(&raw_data))
 		{
-			/*
-			 * Production motion classification runs continuously
-			 * from the same IMU task.
-			 */
-			update_motion_classifier(&imu_data);
+			update_imu_status(
+				state,
+				TRUE
+			);
 
-			y_change =
-				imu_data.y - flat_y;
+			tk_dly_tsk(S4_RUNTIME_SAMPLE_DELAY_MS);
+			continue;
+		}
 
-			if (imu_read_raw_filtered(
-			    &raw_data))
-			{
-				raw_range_update(
-					&raw_range,
-					&raw_data
-				);
-			}
+		update_impact_detector(&raw_data);
 
-			progress_count++;
+		runtime_x_sum += raw_data.x;
+		runtime_y_sum += raw_data.y;
+		runtime_z_sum += raw_data.z;
+		runtime_samples++;
+
+		if (runtime_samples < S4_RUNTIME_FILTER_SAMPLES)
+		{
+			tk_dly_tsk(S4_RUNTIME_SAMPLE_DELAY_MS);
+			continue;
+		}
+
+		imu_data.x =
+			(int16_t)(runtime_x_sum / runtime_samples);
+		imu_data.y =
+			(int16_t)(runtime_y_sum / runtime_samples);
+		imu_data.z =
+			(int16_t)(runtime_z_sum / runtime_samples);
+
+		raw_data = imu_data;
+
+		runtime_x_sum = 0;
+		runtime_y_sum = 0;
+		runtime_z_sum = 0;
+		runtime_samples = 0;
+
+		/*
+		 * The averaged 100 Hz samples preserve the slower motion/terrain
+		 * processing while the impact detector sees every raw sample.
+		 */
+		update_motion_classifier(&imu_data);
+
+		y_change =
+			imu_data.y - flat_y;
+
+		raw_range_update(
+			&raw_range,
+			&raw_data
+		);
+
+		progress_count++;
 
 			if (progress_count >=
 			    S4_PROGRESS_INTERVAL)
@@ -1293,15 +1416,7 @@ EXPORT void imu_task(
 
 				break;
 			}
-		}
-		else
-		{
-			update_imu_status(
-				state,
-				TRUE
-			);
-		}
 
-		tk_dly_tsk(100);
+		tk_dly_tsk(S4_RUNTIME_SAMPLE_DELAY_MS);
 	}
 }

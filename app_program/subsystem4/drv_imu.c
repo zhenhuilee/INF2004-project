@@ -8,6 +8,7 @@
 #define IMU_OUT_X_L 0x28
 #define IMU_CALIBRATION_SAMPLES 100
 #define IMU_FILTER_SAMPLES 5
+#define IMU_CTRL_REG1_100HZ 0x57
 
 static ID imu_i2c;
 static int16_t x_offset = 0;
@@ -27,7 +28,7 @@ bool imu_init(void)
         imu_i2c,
         IMU_ADDRESS,
         IMU_CTRL_REG1,
-        0x27
+        IMU_CTRL_REG1_100HZ
     ) == E_OK;
 }
 
