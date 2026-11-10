@@ -33,9 +33,9 @@ Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| 2026-11-07 | S2-U07 | <commit> | Zhen Hui | PASS | serial monitor | Both wheels turn forward. MOTOR_RIGHT_INVERT = 1. |
-| 2026-11-07 | S2-U08 | <commit> | Zhen Hui | FAIL | serial monitor | Right encoder (Motor B) gave no signal: `count R` stayed 0. Tried Grove 6, Grove 2 and a new Grove cable, Motor A worked in the same places. Also fixed pull down bug in `drv_encoder.c`. Motor B to be replaced |
-| 2026-11-10 | S2-U08 | <commit> | Zhen Hui | PASS | `logs/2026-11-10_S2-U08_encoders.txt` | New Motor B fitted. L ≈ 361/line, R ≈ 370/line at duty 350; err = 0. B-only mode (Motor A phase A gives no signal) |
-| 2026-11-10 | S2-U09 | <commit> | Zhen Hui | PASS | `logs/2026-11-10_S2-U09_counts_per_turn.txt` | Left 0→12858 = 1286/turn; Right 4→12728 = 1272/turn; difference 1.1%. Using average 1279 |
-| 2026-11-10 | S2-U10 | <commit> | Zhen Hui | PASS | ruler measurement | 5.4 cm = 54 mm |
-| 2026-11-10 | S2-U11 | <commit> | Zhen Hui | PASS | ruler measurement | 9.6 cm = 96 mm |
+| 2026-11-07 | S2-U07 | f1437b1 | Zhen Hui | PASS | serial monitor | Both wheels turn forward. MOTOR_RIGHT_INVERT = 1. |
+| 2026-11-07 | S2-U08 | f1437b1 | Zhen Hui | FAIL | serial monitor | Right encoder (Motor B) gave no signal: `count R` stayed 0. Tried Grove 6, Grove 2 and a new Grove cable, Motor A worked in the same places. Also fixed pull down bug in `drv_encoder.c`. Motor B to be replaced |
+| 2026-11-10 | S2-U08 | f1437b1 | Zhen Hui | PASS | `logs/2026-11-10_S2-U08_encoders.txt` | New Motor B fitted. L ≈ 361/line, R ≈ 370/line at duty 350; err = 0. B-only mode (Motor A phase A gives no signal) |
+| 2026-11-10 | S2-U09 | f1437b1 | Zhen Hui | PASS | `logs/2026-11-10_S2-U09_counts_per_turn.txt` | Left 0→12858 = 1286/turn; Right 4→12728 = 1272/turn; difference 1.1%. Using average 1279 |
+| 2026-11-10 | S2-U10 | f1437b1 | Zhen Hui | PASS | ruler measurement | 5.4 cm = 54 mm |
+| 2026-11-10 | S2-U11 | f1437b1 | Zhen Hui | PASS | ruler measurement | 9.6 cm = 96 mm |
