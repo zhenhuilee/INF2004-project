@@ -1,0 +1,17 @@
+S2-U09 Encoder counts per wheel turn
+Date: 2026-11-10
+Build: S2_BRINGUP 1, S2_BRINGUP_DUTY 0 (motors off), ENC_SINGLE_CHANNEL 1 (B-only)
+Method: Used post it to mark the tyre; each wheel turned forward by hand exactly
+        10 full turns, counts read from the serial monitor.
+
+Left wheel:  start 0  -> end 12858  = 12858 counts / 10 turns = 1286 per turn
+Right wheel: start 4  -> end 12728  = 12724 counts / 10 turns = 1272 per turn
+Difference: 1.1% (within 5%)  -> PASS
+Value used: MOTION_TICKS_PER_REV = 1279 (average)
+
+--- serial monitor output: before ---
+[S2] duty=0  count L=0 R=0  err=0  enc_init=0
+--- after 10 turns of the left wheel ---
+[S2] duty=0  count L=12858 R=0  err=0  enc_init=0
+--- after 10 turns of the right wheel (right started at 4) ---
+[S2] duty=0  count L=12858 R=12728  err=0  enc_init=0
