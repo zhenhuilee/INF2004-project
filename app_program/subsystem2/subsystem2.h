@@ -24,9 +24,9 @@
  *    S2_DEBUG   1  print the motion state every 200 ms
  * --------------------------------------------------------------------- */
 #ifndef S2_BRINGUP
-#define S2_BRINGUP		(1)
+#define S2_BRINGUP		(2)
 #endif
-#define S2_BRINGUP_DUTY		(0)	/* per-mille, for S2_BRINGUP 1 */
+#define S2_BRINGUP_DUTY		(350)	/* per-mille, for S2_BRINGUP 1 */
 #ifndef S2_DEBUG
 #define S2_DEBUG		(1)
 #endif
