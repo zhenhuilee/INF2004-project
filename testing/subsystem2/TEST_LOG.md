@@ -12,11 +12,12 @@ Define a test here before running it. Test IDs never change.
 |---|---|---|---|---|---|
 | S2-U01 | sample values stay within 0..100 | | auto | `subsystem2_test.c` | `[TEST] S2-U01 PASS` |
 | S2-U02 | free slots and free blocks within pool size | IF-02 | auto | `subsystem2_test.c` | `[TEST] S2-U02 PASS` |
-| S2-U03 | stop() is accepted and completes within 200 ms | IF-06 | auto | `subsystem2_test.c` | `[TEST] S2-U03 PASS` |
-| S2-U04 | idle with zero encoder errors | encoder integration | auto | `subsystem2_test.c` | `[TEST] S2-U04 PASS` |
-| S2-U05 | 100 mm move finishes, both encoders count up, L/R within 10% | distance estimation | auto | subsystem2_test.c, wheels in the air | `[TEST] S2-U05a/b/c PASS` |
-| S2-U06 | wait_done returns the error of a failed command | IF-06 | auto | subsystem2_test.c | `[TEST] S2-U06 PASS` | 
-| S2-U07 | both motors spin forward for a positive duty | motor driver integration | manual | `S2_BRINGUP 1`, `S2_BRINGUP_DUTY 350`, wheels in the air. Watch each wheel | both wheels turn forward, 2 sec on and 2 sec off |
+| S2-U03 | stop() is accepted and completes within 200 ms | IF-06 | auto | subsystem2_test.c | [TEST] S2-U03 PASS |
+| S2-U04 | idle with zero encoder errors | encoder integration | auto | subsystem2_test.c | [TEST] S2-U04 PASS |
+| S2-U05 | 100 mm move finishes, both encoders count up, L/R within 10% | distance estimation | auto | subsystem2_test.c, wheels in the air | [TEST] S2-U05a/b/c PASS |
+| S2-U06 | wait_done returns the error of a failed command | IF-06 | auto | subsystem2_test.c | [TEST] S2-U06 PASS | 
+
+| S2-U07 | both motors spin forward for a positive duty | motor driver integration | manual | in subsystem2.h, S2_BRINGUP 1, S2_BRINGUP_DUTY 350 | both wheels go forward for 2 sec then stop | 
 | S2-U08 | both encoders count while the motors run | encoder integration | manual | same build as U07. Read `count L=` / `count R=` during `duty=350` | both counts rise at a similar rate, stop when `duty=0`,`err=0` |
 | S2-U09 | encoder counts per wheel turn | motion calibration | manual | `S2_BRINGUP 1`, `S2_BRINGUP_DUTY 0`. Used post it note to mark the tyre, turn each wheel forward 10 turns by hand, read `count L=` / `count R=` | left and right within 5% |
 | S2-U10 | wheel diameter | motion calibration | manual | measure across the tyre with a ruler | get cm and convert value to mm |
