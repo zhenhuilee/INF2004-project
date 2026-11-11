@@ -23,6 +23,7 @@ Define a test here before running it. Test IDs never change.
 | S2-U10 | wheel diameter | motion calibration | manual | measure across the tyre with a ruler | diameter value in cm and convert to mm |
 | S2-U11 | track width | motion calibration | manual | measure from the centre of the left tyre to the centre of the right tyre with a ruler| track width value in cm and convert to mm | 
 | S2-U12 | speed control holds the target speed | PID speed control, consistent speed | manual | in subsystem2.h set S2_BRINGUP 2, in task_motion_demo.c set DEMO_SPEED to 100, read tgt and spd on the lines where tgt is steady not while speeding up or slowing down| spd within 5% of tgt at each speed |
+| S2-U13 | speed control holds the target speed | PID speed control, consistent speed | manual | in subsystem2.h set S2_BRINGUP 2, in task_motion_demo.c set DEMO_SPEED to 200, read tgt and spd on the lines where tgt is steady not while speeding up or slowing down| spd within 5% of tgt at each speed |
 
 
 
@@ -42,4 +43,5 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-10 | S2-U09 | f1437b1 | Zhen Hui | PASS | logs/2026-11-10_S2-U09_counts_per_turn.jpeg | left increases from 0 to 12858. 12858/10 = 1286 counts per turn, right increases from 0 to 12724. 12724/10 = 1272 counts per turn, using average = 1279 | 
 | 2026-11-10 | S2-U10 | f1437b1 | Zhen Hui | PASS | ruler measurement | 5.4 cm = 54 mm |
 | 2026-11-10 | S2-U11 | f1437b1 | Zhen Hui | PASS | ruler measurement | 9.6 cm = 96 mm |
-| 2026-11-12 | S2-U12 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U12_speed_100.jpeg | 100 mm/s on the floor: spd 98–104 (max error 4%). DEMO_SPEED set to 100 | 
+| 2026-11-12 | S2-U12 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U12_speed_100.jpeg | 100 mm/s on the floor: spd 98–104 (max error 4%). DEMO_SPEED set to 100 |
+| 2026-11-12 | S2-U13 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U13_speed_200.jpeg | 200 mm/s on the floor: spd 199–208 (max error 4%). DEMO_SPEED set to 200 |  
