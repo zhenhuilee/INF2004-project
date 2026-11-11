@@ -37,6 +37,19 @@
 #define WHEEL_L			(0U)
 #define WHEEL_R			(1U)
 
+/* The RP2040 microsecond timer only counts once the watchdog "tick"
+   generator is set to divide clk_ref down to 1 MHz.  The kernel does not
+   do this; the boot ROM leaves it running after a UF2 flash, but after a
+   reset or power-on it is not set, and the timer runs at the wrong rate.
+   (datasheet 4.7.2 / 4.6.3) */
+#define WATCHDOG_TICK_REG	(0x4005802CU)
+#define WATCHDOG_TICK_ENABLE	(1U << 9)
+
+/* Accept a measured loop period only within these limits; otherwise use
+   the nominal period (protects the speed estimate from a bad clock) */
+#define DT_MIN_S		(0.002f)
+#define DT_MAX_S		(0.100f)
+
 typedef enum
 {
 	CMD_STOP = 0,
@@ -162,7 +175,19 @@ pid_step (pid_state_t *p_pid, float target, float meas, float dt_s)
 	ff = (MOTION_KF * target) + ((target > 0.0f) ? MOTION_DEADBAND : -MOTION_DEADBAND);
 	out = ff + (g_kp * err) + p_pid->integ + (g_kd * deriv);
 
-	return round_i(clamp_f(out, -(float)MOTOR_DUTY_MAX, (float)MOTOR_DUTY_MAX));
+	/* Never drive a wheel against the direction it is meant to turn:
+	   to slow down, the duty only drops to 0 (the wheel coasts).  Driving
+	   it backwards would also make a B-only encoder count the wrong way
+	   while the wheel is still rolling forwards (see enc_set_direction). */
+	if (target > 0.0f)
+	{
+		out = clamp_f(out, 0.0f, (float)MOTOR_DUTY_MAX);
+	}
+	else
+	{
+		out = clamp_f(out, -(float)MOTOR_DUTY_MAX, 0.0f);
+	}
+	return round_i(out);
 }
 
 /* ===================================================================== */
@@ -362,6 +387,7 @@ motion_task (INT stacd, void *exinf)
 
 	/* This task owns the hardware, so it sets it up itself.  enc_init()
 	   must run here: the encoder interrupt goes to this task's core. */
+	out_w(WATCHDOG_TICK_REG, WATCHDOG_TICK_ENABLE | (UW)XOSC_MHz);	/* 1 us timer */
 	motor_init();
 	er = enc_init();
 	CHECK(er, "enc_init");
@@ -415,9 +441,9 @@ motion_task (INT stacd, void *exinf)
 		now_us = in_w(TIMER_TIMELR);
 		dt_s = (float)(now_us - g_last_us) / US_PER_S;	/* wraps safely */
 		g_last_us = now_us;
-		if (dt_s <= 0.0f)
+		if ((dt_s < DT_MIN_S) || (dt_s > DT_MAX_S))
 		{
-			continue;
+			dt_s = (float)MOTION_PERIOD_MS / 1000.0f;
 		}
 		for (w = 0U; w < WHEELS; w++)
 		{
@@ -453,7 +479,9 @@ motion_task (INT stacd, void *exinf)
 			for (w = 0U; w < WHEELS; w++)
 			{
 				g_duty[w] = pid_step(&g_pid[w], g_target[w], g_speed[w], dt_s);
-				enc_set_direction((enc_id_t)w, g_duty[w]);
+				/* Direction from the set-point, not the duty: the wheel
+				   turns the way the move wants it to */
+				enc_set_direction((enc_id_t)w, round_i(g_target[w]));
 				motor_set_duty((motor_id_t)w, g_duty[w]);
 			}
 		}
