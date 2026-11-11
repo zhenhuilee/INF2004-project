@@ -33,7 +33,7 @@ Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| 2026-11-07 | S2-U07 | f1437b1 | Zhen Hui | PASS | | both wheels turn forward. MOTOR_RIGHT_INVERT = 1. |
+| 2026-11-07 | S2-U07 | f1437b1 | Zhen Hui | PASS | https://youtu.be/saJUfMkZGOE | both wheels turn forward. MOTOR_RIGHT_INVERT = 1. |
 | 2026-11-07 | S2-U08 | f1437b1 | Zhen Hui | FAIL | logs/2026-11-07_S2-U08_right_encoders_fail.txt | motor A worked but the right encoder for motor b have no signal as count R remained at 0. Tried to troubleshoot by using another grove port and a new grove cable. Motor b might need a replacement. Also fixed pull down bug in drv_encoder.c |
 | 2026-11-10 | S2-U08 | f1437b1 | Zhen Hui | PASS | logs/2026-11-10_S2-U08_both_encoders_pass.jpeg | replaced motor b. L ≈ 361/line, R ≈ 370/line at duty 350; err = 0. B-only mode,motor a phase a gives no signal |
 | 2026-11-10 | S2-U09 | f1437b1 | Zhen Hui | PASS | logs/2026-11-10_S2-U09_counts_per_turn.jpeg | left increases from 0 to 12858. 12858/10 = 1286 counts per turn, right increases from 0 to 12724. 12724/10 = 1272 counts per turn, using average = 1279 | 
