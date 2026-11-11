@@ -14,7 +14,7 @@
 #if S2_BRINGUP == 2
 
 #define DEMO_DIST_MM		(500)
-#define DEMO_SPEED		(MOTION_DEFAULT_SPEED)
+#define DEMO_SPEED		(100)
 #define DEMO_PAUSE_MS		(3000)
 #define DEMO_TIMEOUT_MS		(10000)
 

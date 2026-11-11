@@ -16,11 +16,14 @@ Define a test here before running it. Test IDs never change.
 | S2-U04 | idle with zero encoder errors | encoder integration | auto | subsystem2_test.c | [TEST] S2-U04 PASS |
 | S2-U05 | 100 mm move finishes, both encoders count up, L/R within 10% | distance estimation | auto | subsystem2_test.c, wheels in the air | [TEST] S2-U05a/b/c PASS |
 | S2-U06 | wait_done returns the error of a failed command | IF-06 | auto | subsystem2_test.c | [TEST] S2-U06 PASS | 
+
 | S2-U07 | both motors spin forward for a positive duty | motor driver integration | manual | in subsytem2.h, S2_BRINGUP 1 and S2_BRINGUP_DUTY 350, wheels in the air | both wheels move forward for 2 sec then stop and continue again |
 | S2-U08 | both encoders count while the motors run | encoder integration | manual | same build as S2-U07. Read count L= and count R= during duty=350 | both counts rise at a similar rate, stop when duty=0, err=0 | 
 | S2-U09 | encoder counts per wheel turn | motion calibration | manual | in subsystem2.h, S2_BRINGUP 1, S2_BRINGUP_DUTY 0. Used post it note to mark the tyre, turn each wheel forward 10 turns by hand, read count L= and count R= | left and right within 5% |
 | S2-U10 | wheel diameter | motion calibration | manual | measure across the tyre with a ruler | diameter value in cm and convert to mm |
 | S2-U11 | track width | motion calibration | manual | measure from the centre of the left tyre to the centre of the right tyre with a ruler| track width value in cm and convert to mm | 
+| S2-U12 | speed control holds the target speed | PID speed control, consistent speed | manual | in subsystem2.h set S2_BRINGUP 2, in task_motion_demo.c set DEMO_SPEED to 100, read tgt and spd on the lines where tgt is steady not while speeding up or slowing down| spd within 5% of tgt at each speed |
+
 
 
 
@@ -38,4 +41,5 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-10 | S2-U08 | f1437b1 | Zhen Hui | PASS | logs/2026-11-10_S2-U08_both_encoders_pass.jpeg | replaced motor b. L ≈ 361/line, R ≈ 370/line at duty 350; err = 0. B-only mode,motor a phase a gives no signal |
 | 2026-11-10 | S2-U09 | f1437b1 | Zhen Hui | PASS | logs/2026-11-10_S2-U09_counts_per_turn.jpeg | left increases from 0 to 12858. 12858/10 = 1286 counts per turn, right increases from 0 to 12724. 12724/10 = 1272 counts per turn, using average = 1279 | 
 | 2026-11-10 | S2-U10 | f1437b1 | Zhen Hui | PASS | ruler measurement | 5.4 cm = 54 mm |
-| 2026-11-10 | S2-U11 | f1437b1 | Zhen Hui | PASS | ruler measurement | 9.6 cm = 96 mm | 
+| 2026-11-10 | S2-U11 | f1437b1 | Zhen Hui | PASS | ruler measurement | 9.6 cm = 96 mm |
+| 2026-11-12 | S2-U12 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U12_speed_100.jpeg | 100 mm/s on the floor: spd 98–104 (max error 4%). DEMO_SPEED set to 100 | 
