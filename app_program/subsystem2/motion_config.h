@@ -26,9 +26,9 @@
 #define MOTION_TURN_SCALE		(1.00f)   /* fine-tune after the 360 deg test */
 
 /* ---- Speed PID, one per wheel (output: duty in per-mille) ------------ */
-#define MOTION_KF		(1.2f)	  /* feed-forward: duty per mm/s */
-#define MOTION_DEADBAND		(200.0f)  /* duty needed just to start turning */
-#define MOTION_KP		(1.0f)	  /* duty per (mm/s of error) */
+#define MOTION_KF		(1.4f)	  /* feed-forward: duty per mm/s */
+#define MOTION_DEADBAND		(20.0f)  /* duty needed just to start turning */
+#define MOTION_KP		(2.0f)	  /* duty per (mm/s of error) */
 #define MOTION_KI		(6.0f)	  /* duty per mm of accumulated error */
 #define MOTION_KD		(0.0f)	  /* duty per (mm/s^2); start at 0 */
 #define MOTION_I_LIMIT		(300.0f)  /* anti wind-up clamp on the I term */
