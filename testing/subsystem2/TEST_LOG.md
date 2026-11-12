@@ -16,7 +16,6 @@ Define a test here before running it. Test IDs never change.
 | S2-U04 | idle with zero encoder errors | encoder integration | auto | subsystem2_test.c | [TEST] S2-U04 PASS |
 | S2-U05 | 100 mm move finishes, both encoders count up, L/R within 10% | distance estimation | auto | subsystem2_test.c, wheels in the air | [TEST] S2-U05a/b/c PASS |
 | S2-U06 | wait_done returns the error of a failed command | IF-06 | auto | subsystem2_test.c | [TEST] S2-U06 PASS | 
-
 | S2-U07 | both motors spin forward for a positive duty | motor driver integration | manual | in subsytem2.h, S2_BRINGUP 1 and S2_BRINGUP_DUTY 350, wheels in the air | both wheels move forward for 2 sec then stop and continue again |
 | S2-U08 | both encoders count while the motors run | encoder integration | manual | same build as S2-U07. Read count L= and count R= during duty=350 | both counts rise at a similar rate, stop when duty=0, err=0 | 
 | S2-U09 | encoder counts per wheel turn | motion calibration | manual | in subsystem2.h, S2_BRINGUP 1, S2_BRINGUP_DUTY 0. Used post it note to mark the tyre, turn each wheel forward 10 turns by hand, read count L= and count R= | left and right within 5% |
@@ -25,6 +24,8 @@ Define a test here before running it. Test IDs never change.
 | S2-U12 | speed control holds the target speed | PID speed control, consistent speed | manual | in subsystem2.h set S2_BRINGUP 2, in task_motion_demo.c set DEMO_SPEED to 100, read tgt and spd on the lines where tgt is steady not while speeding up or slowing down| spd within 5% of tgt at each speed |
 | S2-U13 | speed control holds the target speed | PID speed control, consistent speed | manual | in subsystem2.h set S2_BRINGUP 2, in task_motion_demo.c set DEMO_SPEED to 200, read tgt and spd on the lines where tgt is steady not while speeding up or slowing down| spd within 5% of tgt at each speed |
 | S2-U14 | speed control holds the target speed | PID speed control, consistent speed | manual | in subsystem2.h set S2_BRINGUP 2, in task_motion_demo.c set DEMO_SPEED to 400, read tgt and spd on the lines where tgt is steady not while speeding up or slowing down| spd within 5% of tgt at each speed |
+| S2-U15 | distance accuracy over 1 m | distance estimation, accurate distance | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 1. Car on the floor at a tape start line, press RST, car drives forward 1000 mm once. Measure the distance travelled with a tape measure. Repeat 5 times | mean error within 2% (980–1020 mm) |
+| S2-U16 | straight-line drift over 1 m | straight-line motion correction, stable motion | manual | same runs as S2-U15. Measure how far the car ended up to the left or right of the straight line | sideways drift within 30 mm |
 
 
 
