@@ -26,6 +26,8 @@ Define a test here before running it. Test IDs never change.
 | S2-U14 | speed control holds the target speed | PID speed control, consistent speed | manual | in subsystem2.h set S2_BRINGUP 2, in task_motion_demo.c set DEMO_SPEED to 400, read tgt and spd on the lines where tgt is steady not while speeding up or slowing down| spd within 5% of tgt at each speed |
 | S2-U15 | distance accuracy over 1 m | distance estimation, accurate distance | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 1. Car on the floor at a tape start line, press RST, car drives forward 1000 mm once. Measure the distance travelled with a tape measure. Repeat 5 times | mean error within 2% (980–1020 mm) |
 | S2-U16 | straight-line drift over 1 m | straight-line motion correction, stable motion | manual | same runs as S2-U15. Measure how far the car ended up to the left or right of the straight line | sideways drift within 30 mm |
+| S2-U17 | 360 degree turn accuracy | encoder-based turning, repeatable turns | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 2. Car on the start line, pointing along it, press RST, car turns left 360 once. Measure how far the front mark ends up left or right of the guide line, convert to degrees. Repeat 5 times | mean error within + or - 5 degrees |
+| S2-U18 | 90 degree turn repeatability | encoder-based turning, repeatable turns | manual | DEMO_MODE 3 (left 90) and DEMO_MODE 4 (right 90). Car on the start/guide line crossing, pointing along the guide line, press RST. Check the car's direction against the start line (which is at 90 degrees to the guide line). Repeat 5 times each | mean error within + or - degrees, spread under 3 degrees |
 
 
 
