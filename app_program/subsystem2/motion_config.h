@@ -19,7 +19,7 @@
 #define MOTION_DEBUG_EVERY	(20U)	/* print every N loops (200 ms) */
 
 /* ---- Geometry (MEASURE) --------------------------------------------- */
-#define MOTION_WHEEL_DIAMETER_MM	(62.0f)
+#define MOTION_WHEEL_DIAMETER_MM	(62.0f) /*new*/
 #define MOTION_TRACK_WIDTH_MM		(96.0f)  
 #define MOTION_TICKS_PER_REV		(1279.0f)  
 #define MOTION_DIST_SCALE		(1.06f)   /* fine-tune after the 1 m test */
