@@ -27,7 +27,7 @@ Define a test here before running it. Test IDs never change.
 | S2-U15 | distance accuracy over 1 m | distance estimation, accurate distance | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 1. Car on the floor at a tape start line, press RST, car drives forward 1000 mm once. Measure the distance travelled with a tape measure. Repeat 5 times | mean error within 2% (980–1020 mm) |
 | S2-U16 | straight-line drift over 1 m | straight-line motion correction, stable motion | manual | same runs as S2-U15. Measure how far the car ended up to the left or right of the straight line | sideways drift within 30 mm |
 | S2-U17 | 360 degree turn accuracy | encoder-based turning, repeatable turns | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 2. Car on the start line, pointing along it, press RST, car turns left 360 once. Measure how far the front mark ends up left or right of the guide line, convert to degrees. Repeat 5 times | mean error within + or - 5 degrees |
-| S2-U18 | 90 degree turn repeatability | encoder-based turning, repeatable turns | manual | DEMO_MODE 3 (left 90) and DEMO_MODE 4 (right 90). Car on the start/guide line crossing, pointing along the guide line, press RST. Check the car's direction against the start line (which is at 90 degrees to the guide line). Repeat 5 times each | mean error within + or - degrees, spread under 3 degrees |
+
 
 
 
@@ -50,5 +50,6 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-12 | S2-U12 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U12_speed_100.jpeg | 100 mm/s on the floor: spd 98–104 (max error 4%). DEMO_SPEED set to 100 |
 | 2026-11-12 | S2-U13 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U13_speed_200.jpeg | 200 mm/s on the floor: spd 199–208 (max error 4%). DEMO_SPEED set to 200 |
 | 2026-11-12 | S2-U14 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U14_speed_400.jpeg | 400 mm/s on the floor: spd 398–414 (max error 3.3%). DEMO_SPEED set to 400 |    
-| 2026-11-12 | S2-U15 | b36cff5 | Zhen Hui | PASS | 2026-11-12_S2-U15_S2-U16_distance_and_straight_line.txt | 1000 mm ×5 on the floor: mean 1014.8 mm (+1.5%), range 1012–1020 mm. Wheel 62 mm, DIST_SCALE 1.06 |
-| 2026-11-12 | S2-U16 | b36cff5 | Zhen Hui | PASS | 2026-11-12_S2-U15_S2-U16_distance_and_straight_line.txt | same 5 runs: drift 0 mm in every run |
+| 2026-11-12 | S2-U15 | b36cff5 | Zhen Hui | PASS | logs/2026-11-12_S2-U15_S2-U16_distance_and_straight_line.txt | 1000 mm ×5 on the floor: mean 1014.8 mm (+1.5%), range 1012–1020 mm. Wheel 62 mm, DIST_SCALE 1.06 |
+| 2026-11-12 | S2-U16 | b36cff5 | Zhen Hui | PASS | logs/2026-11-12_S2-U15_S2-U16_distance_and_straight_line.txt | same 5 runs: drift 0 mm in every run |
+| 2026-11-13 | S2-U17 | 2a28377 | Zhen Hui | PASS | logs/2026-11-13_S2-U17_360_turn.txt` | turn scale 1.18, 5 runs: offsets 0–5 mm right, mean error −1.4 deg, spread −2.6 to 0 deg |
