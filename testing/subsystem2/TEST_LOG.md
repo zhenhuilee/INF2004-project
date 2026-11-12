@@ -48,4 +48,5 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-12 | S2-U12 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U12_speed_100.jpeg | 100 mm/s on the floor: spd 98–104 (max error 4%). DEMO_SPEED set to 100 |
 | 2026-11-12 | S2-U13 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U13_speed_200.jpeg | 200 mm/s on the floor: spd 199–208 (max error 4%). DEMO_SPEED set to 200 |
 | 2026-11-12 | S2-U14 | 729887e | Zhen Hui | PASS | logs/2026-11-12_S2-U14_speed_400.jpeg | 400 mm/s on the floor: spd 398–414 (max error 3.3%). DEMO_SPEED set to 400 |    
-
+| 2026-11-12 | S2-U15 | b36cff5 | Zhen Hui | PASS | 2026-11-12_S2-U15_S2-U16_distance_and_straight_line.txt | 1000 mm ×5 on the floor: mean 1014.8 mm (+1.5%), range 1012–1020 mm. Wheel 62 mm, DIST_SCALE 1.06 |
+| 2026-11-12 | S2-U16 | b36cff5 | Zhen Hui | PASS | 2026-11-12_S2-U15_S2-U16_distance_and_straight_line.txt | same 5 runs: drift 0 mm in every run |
