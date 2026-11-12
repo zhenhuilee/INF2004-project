@@ -19,17 +19,17 @@
 #define MOTION_DEBUG_EVERY	(20U)	/* print every N loops (200 ms) */
 
 /* ---- Geometry (MEASURE) --------------------------------------------- */
-#define MOTION_WHEEL_DIAMETER_MM	(54.0f)
+#define MOTION_WHEEL_DIAMETER_MM	(62.0f)
 #define MOTION_TRACK_WIDTH_MM		(96.0f)  
 #define MOTION_TICKS_PER_REV		(1279.0f)  
-#define MOTION_DIST_SCALE		(1.00f)   /* fine-tune after the 1 m test */
+#define MOTION_DIST_SCALE		(1.06f)   /* fine-tune after the 1 m test */
 #define MOTION_TURN_SCALE		(1.00f)   /* fine-tune after the 360 deg test */
 
 /* ---- Speed PID, one per wheel (output: duty in per-mille) ------------ */
-#define MOTION_KF		(1.4f)	  /* feed-forward: duty per mm/s */
+#define MOTION_KF		(1.15f)	  /* feed-forward: duty per mm/s */
 #define MOTION_DEADBAND		(20.0f)  /* duty needed just to start turning */
-#define MOTION_KP		(2.0f)	  /* duty per (mm/s of error) */
-#define MOTION_KI		(6.0f)	  /* duty per mm of accumulated error */
+#define MOTION_KP		(1.64f)	  /* duty per (mm/s of error) */
+#define MOTION_KI		(4.93f)	  /* duty per mm of accumulated error */
 #define MOTION_KD		(0.0f)	  /* duty per (mm/s^2); start at 0 */
 #define MOTION_I_LIMIT		(300.0f)  /* anti wind-up clamp on the I term */
 #define MOTION_SPEED_ALPHA	(0.4f)	  /* speed filter: weight of newest sample */
