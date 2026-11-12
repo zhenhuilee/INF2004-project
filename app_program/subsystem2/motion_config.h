@@ -23,7 +23,7 @@
 #define MOTION_TRACK_WIDTH_MM		(96.0f)  
 #define MOTION_TICKS_PER_REV		(1279.0f)  
 #define MOTION_DIST_SCALE		(1.06f)   /* fine-tune after the 1 m test */
-#define MOTION_TURN_SCALE		(1.125f)   /* fine-tune after the 360 deg test */
+#define MOTION_TURN_SCALE		(1.15f)   /* fine-tune after the 360 deg test */
 
 /* ---- Speed PID, one per wheel (output: duty in per-mille) ------------ */
 #define MOTION_KF		(1.15f)	  /* feed-forward: duty per mm/s */
