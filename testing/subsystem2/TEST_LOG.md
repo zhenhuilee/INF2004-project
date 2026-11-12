@@ -27,7 +27,7 @@ Define a test here before running it. Test IDs never change.
 | S2-U15 | distance accuracy over 1 m | distance estimation, accurate distance | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 1. Car on the floor at a tape start line, press RST, car drives forward 1000 mm once. Measure the distance travelled with a tape measure. Repeat 5 times | mean error within 2% (980–1020 mm) |
 | S2-U16 | straight-line drift over 1 m | straight-line motion correction, stable motion | manual | same runs as S2-U15. Measure how far the car ended up to the left or right of the straight line | sideways drift within 30 mm |
 | S2-U17 | 360 degree turn accuracy | encoder-based turning, repeatable turns | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 2. Car on the start line, pointing along it, press RST, car turns left 360 once. Measure how far the front mark ends up left or right of the guide line, convert to degrees. Repeat 5 times | mean error within + or - 5 degrees |
-
+| S2-U18 | 90 degree right turn accuracy | encoder-based turning, repeatable turns | manual | in subsystem2.h S2_BRINGUP 2, in task_motion_demo.c DEMO_MODE 4. Car on the guide line with its front at the crossing with the start line, press RST, car turns right 90 once. Measure how far the front ends up from the start line. Repeat 3 times. (360 degree left turns covered by S2-U17) | mean error within + or - 5 degrees |
 
 
 

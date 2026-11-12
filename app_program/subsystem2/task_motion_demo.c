@@ -22,7 +22,7 @@
 #if S2_BRINGUP == 2
 
 #ifndef DEMO_MODE
-#define DEMO_MODE		(2)
+#define DEMO_MODE		(4)
 #endif
 
 #define DEMO_DIST_MM		(500)
