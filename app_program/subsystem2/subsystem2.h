@@ -1,66 +1,42 @@
 /*
  *	subsystem2.h
- *	Subsystem 2 -- Motion control (Buddy 2).  Student ID: <student ID>.
+ *	Subsystem 2 -- Producer (sample source).  Student ID: <student ID>.
  *
  *	Public interface of subsystem 2.  Other subsystems include it as
- *	"../subsystem2/subsystem2.h" and use the motion_xxx() API declared
- *	in motion.h (IF-06 in TEAM.md).
- *
- *	Owns: GP8-GP11 (motor PWM, slices 4 and 5), GP7/GP28/GP27/GP26
- *	(encoders), IO_IRQ_BANK0 (GPIO interrupt).
+ *	"../subsystem2/subsystem2.h".
  */
 
 #ifndef SUBSYSTEM2_H
 #define SUBSYSTEM2_H
 
 #include "../app.h"
-#include "motion.h"
+
+#define S2_PRI_PRODUCER		14	/* priority band 14-15 (TEAM.md) */
+#define S2_PERIOD_MS		300	/* one sample every 300 ms */
 
 /* ---------------------------------------------------------------------
- *  Build switches for bring-up and debugging (see GUIDE.md)
- *    S2_BRINGUP 0  normal operation
- *               1  open-loop motor + encoder check (no PID)
- *               2  normal operation + a demo task that drives a square
- *    S2_DEBUG   1  print the motion state every 200 ms
+ *  IF-01 data format: one sample, sent to subsystem 3's mailbox.
+ *  A mailbox message MUST start with a T_MSG header: the kernel links
+ *  messages together through it, so the data itself is never copied.
  * --------------------------------------------------------------------- */
-#ifndef S2_BRINGUP
-#define S2_BRINGUP		(2)
-#endif
-#define S2_BRINGUP_DUTY		(350)	/* per-mille, for S2_BRINGUP 1 */
-#ifndef S2_DEBUG
-#define S2_DEBUG		(1)
-#endif
-
-#define S2_PRI_DEMO		(15)	/* demo task, band 14-15 */
-
-/* =====================================================================
- *  EXAMPLE PRODUCER (from the template).  Kept only because the example
- *  subsystem 3 still uses these objects.  When subsystem 3 no longer
- *  includes this header for them, delete this block, task_producer.c and
- *  the producer lines in subsystem2.c and subsystem2_test.c.
- * ===================================================================== */
-#define S2_PRI_PRODUCER		15
-#define S2_PERIOD_MS		300
-
 typedef struct {
-	T_MSG	hdr;
-	UW	seq;
-	UW	time_ms;
-	INT	value;
-	INT	prc;
+	T_MSG	hdr;		/* used by the kernel, do not touch */
+	UW	seq;		/* sample sequence number */
+	UW	time_ms;	/* system time when the sample was taken */
+	INT	value;		/* the "measurement", 0..100 */
+	INT	prc;		/* processor (core) that produced it: 1 or 2 */
 } SAMPLE_MSG;
 
-#define S2_POOL_COUNT	4
+#define S2_POOL_COUNT	4	/* at most 4 samples in flight */
 
+/* IF-02: the receiver of a sample gives its memory block back to
+   mpf_samples (tk_rel_mpf) and then a slot back to sem_slots
+   (tk_sig_sem, count 1).  Nothing else may use these two objects. */
 IMPORT ID	sem_slots;
 IMPORT ID	mpf_samples;
 
+/* Private to subsystem 2 */
 IMPORT void	producer_task(INT stacd, void *exinf);
 IMPORT INT	s2_make_value(UW seq);
-/* ===================== end of example block ========================= */
-
-#if S2_BRINGUP == 2
-void	motion_demo_task(INT stacd, void *exinf);
-#endif
 
 #endif /* SUBSYSTEM2_H */
