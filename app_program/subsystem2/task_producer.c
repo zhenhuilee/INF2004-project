@@ -1,22 +1,16 @@
 /*
- *	task_producer.c
- *	Subsystem 2 -- the producer task.
- *
- *	APIs shown: tk_wai_sem, tk_get_mpf, tk_snd_mbx, tk_get_tim,
- *	            tk_dly_tsk, tk_get_prc
- *
- *	Replace s2_make_value() with a real sensor read (ADC, I2C, ...) in
- *	your project.  Keep each peripheral owned by ONE task.
+ *  task_producer.c
+ *  Subsystem 2 -- the producer task.
  */
 
 #include "subsystem2.h"
-#include "../subsystem3/subsystem3.h"	/* IF-01: mbx_samples */
+#include "../subsystem3/subsystem3.h"   /* IF-01: mbx_samples */
 
 /* A fake measurement: a triangle wave between 0 and 100 */
 EXPORT INT s2_make_value(UW seq)
 {
-	INT	phase = (INT)(seq % 20);
-	return (phase < 10 ? phase : 20 - phase) * 10;
+    INT phase = (INT)(seq % 20);
+    return (phase < 10 ? phase : 20 - phase) * 10;
 }
 
 EXPORT void producer_task(INT stacd, void *exinf)
@@ -28,39 +22,6 @@ EXPORT void producer_task(INT stacd, void *exinf)
 
     (void)stacd;
     (void)exinf;
-
-    /* ==================================
-       TEMPORARY MOTOR TEST
-       ================================== */
-
-	motor_init();
-
-	motor_forward();
-	tk_dly_tsk(5000);
-
-	motor_stop();
-	tk_dly_tsk(500);
-
-	motor_backward();
-	tk_dly_tsk(5000);
-
-	motor_stop();
-	tk_dly_tsk(500);
-
-	motor_turn_right();
-	tk_dly_tsk(200);
-
-	motor_stop();
-	tk_dly_tsk(500);
-
-	motor_turn_left();
-	tk_dly_tsk(200);
-
-	motor_stop();
-
-    /* ==================================
-       ORIGINAL PRODUCER TASK
-       ================================== */
 
     while (1) {
         er = tk_wai_sem(sem_slots, 1, TMO_FEVR);
@@ -82,17 +43,16 @@ EXPORT void producer_task(INT stacd, void *exinf)
         msg->value = s2_make_value(msg->seq);
 
 #if TK_SUPPORT_SMP
-		msg->prc     = tk_get_prc();	/* which core am I on? */
+        msg->prc    = tk_get_prc();    /* which core am I on? */
 #else
-		msg->prc     = 1;
+        msg->prc    = 1;
 #endif
 
-		/* 4. Send the POINTER to subsystem 3.  From here on the block
-		      belongs to the receiver: do not touch msg again. */
-		er = tk_snd_mbx(mbx_samples, (T_MSG *)msg);
-		CHECK(er, "tk_snd_mbx");
+        /* Send the pointer to Subsystem 3 */
+        er = tk_snd_mbx(mbx_samples, (T_MSG *)msg);
+        CHECK(er, "tk_snd_mbx");
 
-		/* 5. Wait for the next period.  Other tasks run meanwhile. */
-		tk_dly_tsk(S2_PERIOD_MS);
-	}
+        /* Wait for the next period */
+        tk_dly_tsk(S2_PERIOD_MS);
+    }
 }
