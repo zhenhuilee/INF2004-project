@@ -7,12 +7,28 @@
 #include "drv_imu.h"
 #include "../subsystem2/motion.h"
 
-#define S4_UPHILL_THRESHOLD			-1000
+#define S4_UPHILL_THRESHOLD			-700
 #define S4_PEAK_RISE_THRESHOLD			1500
-#define S4_DOWNHILL_RISE_THRESHOLD		3000
+#define S4_DOWNHILL_RISE_THRESHOLD		2200
 #define S4_FLAT_RETURN_THRESHOLD		1000
 #define S4_CONFIRM_SAMPLES			3
 #define S4_PROGRESS_INTERVAL			5
+
+/*
+ * Empirical hump-height calibration from three trials using a 10 mm
+ * reference hump.  Mean measured Y excursion was 4385 counts.
+ */
+#define S4_HEIGHT_REFERENCE_COUNTS		4385
+#define S4_HEIGHT_REFERENCE_MM			10
+
+/*
+ * Encoder + IMU height estimation.
+ * motion_get_status() supplies travelled distance in mm.  Relative IMU
+ * pitch supplies the slope angle.  Height is accumulated as ds * sin(theta).
+ * Integer sine values are scaled by 1000 to avoid floating point.
+ */
+#define S4_SIN_SCALE				1000
+#define S4_MAX_HEIGHT_TILT_DEG			45
 
 #define S4_MOTION_STATIONARY			0
 #define S4_MOTION_ACCELERATING			1
@@ -63,6 +79,14 @@ static BOOL turning_active;
 static INT turning_count;
 static INT turn_end_count;
 static INT turn_rate_report_count;
+
+static INT current_hump_height_mm;
+static INT highest_hump_height_mm;
+
+static BOOL encoder_height_active;
+static int32_t encoder_height_mm_x1000;
+static int32_t encoder_height_peak_mm_x1000;
+static int32_t encoder_previous_odometer_mm;
 
 typedef struct
 {
@@ -453,6 +477,195 @@ static void update_imu_status(
 				1 : 0
 		);
 	}
+}
+
+static INT sine_milli(INT angle_deg)
+{
+	static const int16_t sine_table[] =
+	{
+		0, 17, 35, 52, 70, 87, 105, 122, 139, 156,
+		174, 191, 208, 225, 242, 259, 276, 292, 309, 326,
+		342, 358, 375, 391, 407, 423, 438, 454, 469, 485,
+		500, 515, 530, 545, 559, 574, 588, 602, 616, 629,
+		643, 656, 669, 682, 695, 707
+	};
+
+	if (angle_deg < 0)
+	{
+		angle_deg = -angle_deg;
+	}
+
+	if (angle_deg > S4_MAX_HEIGHT_TILT_DEG)
+	{
+		angle_deg = S4_MAX_HEIGHT_TILT_DEG;
+	}
+
+	return sine_table[angle_deg];
+}
+
+static void encoder_height_reset(void)
+{
+	encoder_height_active = FALSE;
+	encoder_height_mm_x1000 = 0;
+	encoder_height_peak_mm_x1000 = 0;
+	encoder_previous_odometer_mm = 0;
+}
+
+static void encoder_height_start(void)
+{
+	motion_status_t status;
+
+	motion_get_status(&status);
+
+	encoder_height_mm_x1000 = 0;
+	encoder_height_peak_mm_x1000 = 0;
+	encoder_previous_odometer_mm = status.odometer_mm;
+	encoder_height_active = TRUE;
+
+	tm_printf(
+		(UB*)"imu: ENCODER HEIGHT TRACKING START odometer=%ld mm\n",
+		(long)status.odometer_mm
+	);
+}
+
+static void encoder_height_update(
+	IMU_DATA *current,
+	INT flat_angle
+)
+{
+	motion_status_t status;
+	int32_t distance_mm;
+	INT tilt_deg;
+	INT sine_value;
+
+	if (!encoder_height_active)
+	{
+		return;
+	}
+
+	motion_get_status(&status);
+
+	distance_mm =
+		status.odometer_mm -
+		encoder_previous_odometer_mm;
+
+	encoder_previous_odometer_mm =
+		status.odometer_mm;
+
+	if (distance_mm <= 0)
+	{
+		return;
+	}
+
+	tilt_deg = relative_tilt_deg(
+		current->y,
+		current->z,
+		flat_angle
+	);
+
+	/*
+	 * The mounting direction determines the sign of pitch.  Hump height
+	 * needs the magnitude of the uphill slope, so sine_milli() uses the
+	 * absolute angle.  Only the UPHILL terrain state calls this function.
+	 */
+	sine_value = sine_milli(tilt_deg);
+
+	encoder_height_mm_x1000 +=
+		distance_mm * sine_value;
+
+	if (encoder_height_mm_x1000 >
+	    encoder_height_peak_mm_x1000)
+	{
+		encoder_height_peak_mm_x1000 =
+			encoder_height_mm_x1000;
+	}
+}
+
+static INT encoder_height_get_mm(void)
+{
+	if (encoder_height_peak_mm_x1000 <= 0)
+	{
+		return 0;
+	}
+
+	return (INT)(
+		(encoder_height_peak_mm_x1000 +
+		 (S4_SIN_SCALE / 2)) /
+		S4_SIN_SCALE
+	);
+}
+
+static void report_encoder_hump_height(void)
+{
+	INT encoder_height_mm;
+
+	encoder_height_mm =
+		encoder_height_get_mm();
+
+	if (encoder_height_mm > 0)
+	{
+		tm_printf(
+			(UB*)"imu: ENCODER + IMU HUMP HEIGHT = %d mm\n",
+			encoder_height_mm
+		);
+
+		if (encoder_height_mm > highest_hump_height_mm)
+		{
+			highest_hump_height_mm =
+				encoder_height_mm;
+		}
+	}
+	else
+	{
+		tm_printf(
+			(UB*)"imu: ENCODER + IMU HUMP HEIGHT = unavailable\n"
+		);
+	}
+
+	tm_printf(
+		(UB*)"imu: HIGHEST HUMP = %d mm\n",
+		highest_hump_height_mm
+	);
+
+	encoder_height_active = FALSE;
+}
+
+static INT estimate_hump_height_mm(
+	INT flat_y,
+	INT minimum_y
+)
+{
+	INT excursion;
+
+	excursion = flat_y - minimum_y;
+
+	if (excursion <= 0)
+	{
+		return 0;
+	}
+
+	return (excursion * S4_HEIGHT_REFERENCE_MM +
+		(S4_HEIGHT_REFERENCE_COUNTS / 2)) /
+		S4_HEIGHT_REFERENCE_COUNTS;
+}
+
+static void report_hump_height(
+	INT flat_y,
+	INT minimum_y
+)
+{
+	current_hump_height_mm =
+		estimate_hump_height_mm(flat_y, minimum_y);
+
+	if (current_hump_height_mm > highest_hump_height_mm)
+	{
+		highest_hump_height_mm = current_hump_height_mm;
+	}
+
+	tm_printf(
+		(UB*)"imu: Y-CALIBRATED HUMP HEIGHT = %d mm\n",
+		current_hump_height_mm
+	);
 }
 
 static void raw_range_reset(S4_RAW_RANGE *range)
@@ -958,6 +1171,9 @@ EXPORT void imu_task(
 
 	imu_status = 0xFF;
 	s4_motion_status = 0;
+	current_hump_height_mm = 0;
+	highest_hump_height_mm = 0;
+	encoder_height_reset();
 
 	if (!imu_init())
 	{
@@ -1304,6 +1520,8 @@ EXPORT void imu_task(
 						lowest_y =
 							imu_data.y;
 
+						encoder_height_start();
+
 						state =
 							S4_TERRAIN_UPHILL;
 
@@ -1369,6 +1587,11 @@ EXPORT void imu_task(
 
 			case S4_TERRAIN_UPHILL:
 
+				encoder_height_update(
+					&imu_data,
+					flat_angle
+				);
+
 				if (imu_data.y < lowest_y)
 				{
 					lowest_y =
@@ -1393,6 +1616,13 @@ EXPORT void imu_task(
 							&raw_data,
 							flat_angle
 						);
+
+						report_hump_height(
+							flat_y,
+							lowest_y
+						);
+
+						report_encoder_hump_height();
 
 						state =
 							S4_TERRAIN_PEAK;
