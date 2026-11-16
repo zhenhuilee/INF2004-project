@@ -5,6 +5,7 @@
 
 #include "subsystem4.h"
 #include "drv_imu.h"
+#include "../subsystem2/motion.h"
 
 #define S4_UPHILL_THRESHOLD			-1000
 #define S4_PEAK_RISE_THRESHOLD			1500
@@ -28,8 +29,10 @@
 #define S4_ACCEL_CONFIRM_SAMPLES		1
 #define S4_STATIONARY_CONFIRM_SAMPLES		4
 
-#define S4_IMPACT_AXIS_THRESHOLD		10000U
-#define S4_IMPACT_COOLDOWN_SAMPLES		100
+#define S4_LIFT_Y_THRESHOLD			-1800
+#define S4_LIFT_CLEAR_THRESHOLD			-700
+#define S4_LIFT_CONFIRM_SAMPLES			3
+#define S4_LIFT_CLEAR_SAMPLES			3
 #define S4_RUNTIME_FILTER_SAMPLES		10
 #define S4_RUNTIME_SAMPLE_DELAY_MS		10
 
@@ -37,6 +40,8 @@
 #define S4_TURN_CONFIRM_SAMPLES		2
 #define S4_TURN_END_SAMPLES			3
 #define S4_TURN_RATE_REPORT_SAMPLES		5
+
+#define S4_MOTION_LIFT_BIT			S4_MOTION_IMPACT_BIT
 
 static S4_IMU_STATUS imu_status;
 EXPORT S4_MOTION_STATUS s4_motion_status;
@@ -47,9 +52,10 @@ static BOOL motion_sample_valid;
 static INT acceleration_count;
 static INT stationary_count;
 
-static IMU_DATA previous_impact_sample;
-static BOOL impact_sample_valid;
-static INT impact_cooldown;
+static BOOL lifted_active;
+static BOOL hump_complete;
+static INT lift_count;
+static INT lift_clear_count;
 
 static INT previous_heading;
 static BOOL heading_sample_valid;
@@ -118,11 +124,11 @@ static void update_motion_status(UB bit, BOOL active)
 	{
 		s4_motion_status = new_status;
 		tm_printf(
-			(UB*)"imu: MOTION STATUS = 0x%02X accelerating=%d turning=%d impact=%d\n",
+			(UB*)"imu: MOTION STATUS = 0x%02X accelerating=%d turning=%d lifted=%d\n",
 			s4_motion_status,
 			(s4_motion_status & S4_MOTION_ACCEL_BIT) ? 1 : 0,
 			(s4_motion_status & S4_MOTION_TURN_BIT) ? 1 : 0,
-			(s4_motion_status & S4_MOTION_IMPACT_BIT) ? 1 : 0
+			(s4_motion_status & S4_MOTION_LIFT_BIT) ? 1 : 0
 		);
 	}
 }
@@ -216,82 +222,96 @@ static void update_motion_classifier(IMU_DATA *current)
 	}
 }
 
-static UW axis_change(INT previous, INT current)
+static void lift_detector_reset(void)
 {
-	INT difference;
-
-	difference = current - previous;
-
-	if (difference < 0)
-	{
-		difference = -difference;
-	}
-
-	return (UW)difference;
+	lifted_active = FALSE;
+	hump_complete = FALSE;
+	lift_count = 0;
+	lift_clear_count = 0;
+	update_motion_status(S4_MOTION_LIFT_BIT, FALSE);
 }
 
-static void impact_detector_reset(void)
+static void update_lift_detector(
+	IMU_DATA *current,
+	INT flat_y,
+	S4_TERRAIN_STATE terrain_state
+)
 {
-	impact_sample_valid = FALSE;
-	impact_cooldown = 0;
-}
+	INT y_change;
 
-static void update_impact_detector(IMU_DATA *current)
-{
-	UW delta_x;
-	UW delta_y;
-	UW delta_z;
-	UW max_axis_delta;
-
-	if (!impact_sample_valid)
+	if (terrain_state != S4_TERRAIN_FLAT || !hump_complete)
 	{
-		previous_impact_sample = *current;
-		impact_sample_valid = TRUE;
+		lift_count = 0;
 		return;
 	}
 
-	delta_x = axis_change(previous_impact_sample.x, current->x);
-	delta_y = axis_change(previous_impact_sample.y, current->y);
-	delta_z = axis_change(previous_impact_sample.z, current->z);
+	y_change = current->y - flat_y;
 
-	previous_impact_sample = *current;
-
-	max_axis_delta = delta_x;
-
-	if (delta_y > max_axis_delta)
+	if (!lifted_active)
 	{
-		max_axis_delta = delta_y;
-	}
+		if (y_change < S4_LIFT_Y_THRESHOLD)
+		{
+			lift_count++;
 
-	if (delta_z > max_axis_delta)
-	{
-		max_axis_delta = delta_z;
-	}
+			if (lift_count >= S4_LIFT_CONFIRM_SAMPLES)
+			{
+				lifted_active = TRUE;
+				lift_count = 0;
+				lift_clear_count = 0;
 
-	if (impact_cooldown > 0)
-	{
-		impact_cooldown--;
+				update_motion_status(
+					S4_MOTION_LIFT_BIT,
+					TRUE
+				);
 
-		if (impact_cooldown == 0)
-			update_motion_status(S4_MOTION_IMPACT_BIT, FALSE);
+				tm_printf(
+					(UB*)"imu: MOTION EVENT = LIFTED "
+					"y_change=%d\n",
+					y_change
+				);
+
+				(void)motion_stop();
+
+				tm_printf(
+					(UB*)"imu: SAFETY STOP REQUEST = 1\n"
+				);
+			}
+		}
+		else
+		{
+			lift_count = 0;
+		}
 
 		return;
 	}
 
-	if (max_axis_delta > S4_IMPACT_AXIS_THRESHOLD)
+	if (y_change > S4_LIFT_CLEAR_THRESHOLD)
 	{
-		update_motion_status(
-			S4_MOTION_IMPACT_BIT,
-			TRUE
-		);
+		lift_clear_count++;
 
-		tm_printf(
-			(UB*)"imu: MOTION EVENT = SUDDEN IMPACT "
-			"axis_delta=%u\n",
-			max_axis_delta
-		);
+		if (lift_clear_count >= S4_LIFT_CLEAR_SAMPLES)
+		{
+			lifted_active = FALSE;
+			lift_count = 0;
+			lift_clear_count = 0;
 
-		impact_cooldown = S4_IMPACT_COOLDOWN_SAMPLES;
+			update_motion_status(
+				S4_MOTION_LIFT_BIT,
+				FALSE
+			);
+
+			tm_printf(
+				(UB*)"imu: MOTION EVENT = LIFT CLEARED\n"
+			);
+
+			tm_printf(
+				(UB*)"imu: SAFETY STOP REQUEST = 0\n"
+			);
+		}
+	}
+	else
+	{
+		lift_clear_count = 0;
 	}
 }
 
@@ -1103,7 +1123,7 @@ EXPORT void imu_task(
 	 * changes, so the raw flat reference is the matching runtime baseline.
 	 */
 	flat_y = raw_data.y;
-	impact_detector_reset();
+	lift_detector_reset();
 	turning_detector_reset();
 
 	tm_printf((UB*)"\n");
@@ -1188,7 +1208,6 @@ EXPORT void imu_task(
 			continue;
 		}
 
-		update_impact_detector(&raw_data);
 
 		runtime_x_sum += raw_data.x;
 		runtime_y_sum += raw_data.y;
@@ -1216,8 +1235,8 @@ EXPORT void imu_task(
 		runtime_samples = 0;
 
 		/*
-		 * The averaged 100 Hz samples preserve the slower motion/terrain
-		 * processing while the impact detector sees every raw sample.
+		 * Averaged samples are used for motion, terrain and lift processing
+		 * so short raw-sample spikes do not trigger the lift detector.
 		 */
 		update_motion_classifier(&imu_data);
 
@@ -1228,6 +1247,12 @@ EXPORT void imu_task(
 
 		y_change =
 			imu_data.y - flat_y;
+
+		update_lift_detector(
+			&imu_data,
+			flat_y,
+			state
+		);
 
 		raw_range_update(
 			&raw_range,
@@ -1244,6 +1269,13 @@ EXPORT void imu_task(
 				);
 
 				progress_count = 0;
+			}
+
+			if (hump_complete)
+			{
+				transition_count = 0;
+				progress_count = 0;
+				continue;
 			}
 
 			switch (state)
@@ -1565,6 +1597,8 @@ EXPORT void imu_task(
 						tm_printf(
 							(UB*)"========================================\n"
 						);
+
+						hump_complete = TRUE;
 
 						tm_printf(
 							(UB*)"HUMP + TILT TEST COMPLETE\n"
