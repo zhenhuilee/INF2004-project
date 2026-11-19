@@ -1,0 +1,18 @@
+| Run  | Offset (mm) | Side (L/R)  | Angle error (deg) | Encoder L (mm) | Encoder R (mm) |
+|------|-------------|-------------|-------------------|----------------|----------------|
+| 1    | 0           | on the line | 0.0               | -357           | 356            |
+| 2    | 5           | R           | -2.6              | -357           | 356            |
+| 3    | 4           | R           | -2.1              | -357           | 356            |
+| 4    | 3           | R           | -1.6              | -357           | 356            |
+| 5    | 1           | R           | -0.5              | -357           | 356            |
+| Mean | 2.6         | R           | -1.4              | -357           | 356            |
+
+Mean error: -1.4 deg (slightly short every run), spread -2.6 to 0.0 deg
+Result: S2-U17 PASS (target: mean within +/-5 deg)
+
+--- serial monitor output ---
+Run 1: [S2-TEST] left 360: done  wheel L=-357 mm  R=356 mm  (encoder)
+Run 2: [S2-TEST] left 360: done  wheel L=-357 mm  R=356 mm  (encoder)
+Run 3: [S2-TEST] left 360: done  wheel L=-357 mm  R=356 mm  (encoder)
+Run 4: [S2-TEST] left 360: done  wheel L=-357 mm  R=356 mm  (encoder)
+Run 5: [S2-TEST] left 360: done  wheel L=-357 mm  R=356 mm  (encoder)

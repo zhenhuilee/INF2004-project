@@ -50,16 +50,16 @@ fixed.
 | GP23, GP24, GP25, GP29 | *reserved* | Pico W radio |
 | GP0 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
 | GP1 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
-| GP2 | | |
-| GP3 | | |
+| GP2 |S4 | IMU I2C1 SDA|
+| GP3 |S4 |IMU I2C1 SCL |
 | GP4 | | |
 | GP5 | | |
 | GP6 | | |
-| GP7 | | |
-| GP8 | | |
-| GP9 | | |
-| GP10 | | |
-| GP11 | | |
+| GP7 |S2 |Motor A - Encoder Ouput A Phase (Grove 7) |
+| GP8 |S2 |Motor A |
+| GP9 |S2 |Motor A |
+| GP10 |S2 |Motor B |
+| GP11 |S2 |Motor B |
 | GP12 | | |
 | GP13 | | |
 | GP14 | | |
@@ -71,9 +71,9 @@ fixed.
 | GP20 | | |
 | GP21 | | |
 | GP22 | | |
-| GP26 | | (ADC0 capable) |
-| GP27 | | (ADC1 capable) |
-| GP28 | | (ADC2 capable) |
+| GP26 |S2 |Motor B - Encoder Output B Phase (Grove 6) (ADC0 capable) |
+| GP27 |S2 |Motor B - Encoder Output A Phase (Grove 6) (ADC1 capable) |
+| GP28 |S2 |Motor A - Encoder Output B Phase (Grove 7) (ADC2 capable) |
 
 ## 3. Peripherals
 

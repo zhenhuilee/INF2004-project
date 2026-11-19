@@ -29,7 +29,6 @@
 #include "drv_encoder.h"
 #include "motion_config.h"
 
-
 #define PI_F			(3.14159265f)
 #define MM_PER_TICK		((PI_F * MOTION_WHEEL_DIAMETER_MM * MOTION_DIST_SCALE) \
 				 / MOTION_TICKS_PER_REV)
