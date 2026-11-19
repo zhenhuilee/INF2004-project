@@ -11,7 +11,11 @@
 #define SUBSYSTEM5_H
 
 #include "../app.h"
+#include <stdbool.h>
 
-#define S5_PRI_MAIN	20		/* priority band 20-21 (TEAM.md) */
+#define S5_PRI_MAIN 20        /* priority band 20-21 (TEAM.md) */
+
+/* Public API for other subsystems */
+bool subsystem5_is_blocked(void);
 
 #endif /* SUBSYSTEM5_H */
