@@ -7,9 +7,9 @@
 #define S3_BATCH_SIZE       5   
 
 /* IR Sensors and LED pin mapping */
-#define S3_IR_PIN_LEFT    6   /* Left tracking sensor */
+#define S3_IR_PIN_LEFT    0   /* Left tracking sensor */
 #define S3_IR_PIN_CENTER  16   /* Center tracking sensor */
-#define S3_IR_PIN_RIGHT   4   /* Right barcode sensor */
+#define S3_IR_PIN_RIGHT   6   /* Right barcode sensor */
 #define S3_LED_PIN_1      1   /* Status LED */
 
 /* 4 Possible Decoded Instructions (Encoded in 2 bits: 0 to 3) */

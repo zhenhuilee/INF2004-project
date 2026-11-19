@@ -6,7 +6,7 @@
 #define S5_ECHO_PIN  5
 
 /* Servo Motor */
-#define S5_SERVO_PIN 8
+#define S5_SERVO_PIN 14
 
 /* Scanning Configuration */
 #define S5_SCAN_COUNT 5
