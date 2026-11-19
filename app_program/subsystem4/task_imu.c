@@ -45,12 +45,13 @@
 #define S4_ACCEL_CONFIRM_SAMPLES		1
 #define S4_STATIONARY_CONFIRM_SAMPLES		4
 
-#define S4_LIFT_Y_THRESHOLD			-1800
-#define S4_LIFT_CLEAR_THRESHOLD			-700
-#define S4_LIFT_CONFIRM_SAMPLES			3
+#define S4_LIFT_RAW_CHANGE_THRESHOLD		500000UL
+#define S4_LIFT_CONFIRM_SAMPLES			2
 #define S4_LIFT_CLEAR_SAMPLES			3
+#define S4_LIFT_STARTUP_GRACE_SAMPLES		200
 #define S4_RUNTIME_FILTER_SAMPLES		10
 #define S4_RUNTIME_SAMPLE_DELAY_MS		10
+#define S4_DRIVE_SPEED_MM_S			MOTION_DEFAULT_SPEED
 
 #define S4_TURN_CHANGE_THRESHOLD		3
 #define S4_TURN_CONFIRM_SAMPLES		2
@@ -69,6 +70,7 @@ static INT acceleration_count;
 static INT stationary_count;
 
 static BOOL lifted_active;
+static BOOL safety_stop_latched;
 static BOOL hump_complete;
 static INT lift_count;
 static INT lift_clear_count;
@@ -249,6 +251,7 @@ static void update_motion_classifier(IMU_DATA *current)
 static void lift_detector_reset(void)
 {
 	lifted_active = FALSE;
+	safety_stop_latched = FALSE;
 	hump_complete = FALSE;
 	lift_count = 0;
 	lift_clear_count = 0;
@@ -261,81 +264,81 @@ static void update_lift_detector(
 	S4_TERRAIN_STATE terrain_state
 )
 {
-	INT y_change;
+	static IMU_DATA previous_lift_sample;
+	static BOOL previous_lift_valid;
+	INT dx;
+	INT dy;
+	INT dz;
+	UW sample_change;
 
-	if (terrain_state != S4_TERRAIN_FLAT || !hump_complete)
+	(void)flat_y;
+	(void)terrain_state;
+
+	if (safety_stop_latched)
 	{
-		lift_count = 0;
 		return;
 	}
 
-	y_change = current->y - flat_y;
-
-	if (!lifted_active)
+	if (!previous_lift_valid)
 	{
-		if (y_change < S4_LIFT_Y_THRESHOLD)
-		{
-			lift_count++;
-
-			if (lift_count >= S4_LIFT_CONFIRM_SAMPLES)
-			{
-				lifted_active = TRUE;
-				lift_count = 0;
-				lift_clear_count = 0;
-
-				update_motion_status(
-					S4_MOTION_LIFT_BIT,
-					TRUE
-				);
-
-				tm_printf(
-					(UB*)"imu: MOTION EVENT = LIFTED "
-					"y_change=%d\n",
-					y_change
-				);
-
-				(void)motion_stop();
-
-				tm_printf(
-					(UB*)"imu: SAFETY STOP REQUEST = 1\n"
-				);
-			}
-		}
-		else
-		{
-			lift_count = 0;
-		}
-
+		previous_lift_sample = *current;
+		previous_lift_valid = TRUE;
 		return;
 	}
 
-	if (y_change > S4_LIFT_CLEAR_THRESHOLD)
-	{
-		lift_clear_count++;
+	dx = current->x - previous_lift_sample.x;
+	dy = current->y - previous_lift_sample.y;
+	dz = current->z - previous_lift_sample.z;
 
-		if (lift_clear_count >= S4_LIFT_CLEAR_SAMPLES)
+	sample_change =
+		(UW)(dx * dx) +
+		(UW)(dy * dy) +
+		(UW)(dz * dz);
+
+	previous_lift_sample = *current;
+
+	if (sample_change >= S4_LIFT_RAW_CHANGE_THRESHOLD)
+	{
+		lift_count++;
+
+		tm_printf(
+			(UB*)"imu: LIFT RAW change=%lu count=%d "
+			"x=%d y=%d z=%d\n",
+			sample_change,
+			lift_count,
+			current->x,
+			current->y,
+			current->z
+		);
+
+		if (lift_count >= S4_LIFT_CONFIRM_SAMPLES)
 		{
-			lifted_active = FALSE;
+			lifted_active = TRUE;
+			safety_stop_latched = TRUE;
 			lift_count = 0;
 			lift_clear_count = 0;
 
 			update_motion_status(
 				S4_MOTION_LIFT_BIT,
-				FALSE
+				TRUE
 			);
 
 			tm_printf(
-				(UB*)"imu: MOTION EVENT = LIFT CLEARED\n"
+				(UB*)"imu: MOTION EVENT = LIFTED "
+				"raw_change=%lu\n",
+				sample_change
 			);
 
+			(void)motion_stop();
+
 			tm_printf(
-				(UB*)"imu: SAFETY STOP REQUEST = 0\n"
+				(UB*)"imu: SAFETY STOP REQUEST = 1\n"
 			);
 		}
 	}
 	else
 	{
-		lift_clear_count = 0;
+		lift_count = 0;
 	}
 }
 
@@ -1159,6 +1162,7 @@ EXPORT void imu_task(
 	INT progress_count = 0;
 	INT i;
 	INT runtime_samples = 0;
+	INT lift_startup_grace_samples = S4_LIFT_STARTUP_GRACE_SAMPLES;
 	int32_t runtime_x_sum = 0;
 	int32_t runtime_y_sum = 0;
 	int32_t runtime_z_sum = 0;
@@ -1226,28 +1230,8 @@ EXPORT void imu_task(
 	);
 
 	tm_printf(
-		(UB*)"Calibration starts in 5 seconds.\n"
+		(UB*)"imu: CALIBRATION STARTING IMMEDIATELY - KEEP ROBOT FLAT\n"
 	);
-
-	tm_printf(
-		(UB*)"Use this time to position the IMU.\n"
-	);
-
-	tm_printf(
-		(UB*)"========================================\n\n"
-	);
-
-	for (i = 5; i > 0; i--)
-	{
-		tm_printf(
-			(UB*)"%d...\n",
-			i
-		);
-
-		tk_dly_tsk(1000);
-	}
-
-	tm_printf((UB*)"\n");
 
 	tm_printf(
 		(UB*)"========================================\n"
@@ -1303,7 +1287,9 @@ EXPORT void imu_task(
 		FALSE
 	);
 
-	motion_verification_test();
+	tm_printf(
+		(UB*)"imu: GUIDED MOTION VERIFICATION SKIPPED FOR FAST START\n"
+	);
 
 
 	/*
@@ -1392,23 +1378,21 @@ EXPORT void imu_task(
 	);
 
 	tm_printf(
-		(UB*)"\nSTEP 1 OF 4 - UPHILL\n"
+		(UB*)"imu: BASELINE READY\n"
+	);
+	tm_printf(
+		(UB*)"imu: >>> MOTOR WILL START FORWARD NOW - speed=%d mm/s <<<\n",
+		S4_DRIVE_SPEED_MM_S
+	);
+
+	(void)motion_drive(S4_DRIVE_SPEED_MM_S, 0);
+
+	tm_printf(
+		(UB*)"imu: >>> MOTOR FORWARD COMMAND SENT <<<\n"
 	);
 
 	tm_printf(
-		(UB*)"Wait during the countdown.\n"
-	);
-
-	tm_printf(
-		(UB*)"After GO NOW, slowly move UPHILL.\n"
-	);
-
-	tm_printf(
-		(UB*)"Stop when UPHILL DETECTED appears.\n"
-	);
-
-	preparation_countdown(
-		"MOVE UPHILL"
+		(UB*)"imu: MOTOR STARTED - CONTINUOUS FORWARD\n"
 	);
 
 	while (1)
@@ -1424,6 +1408,29 @@ EXPORT void imu_task(
 			continue;
 		}
 
+		/*
+		 * Ignore normal motor-start acceleration before arming pickup safety.
+		 * After the grace period, pickup detection uses every raw IMU sample.
+		 */
+		if (lift_startup_grace_samples > 0)
+		{
+			lift_startup_grace_samples--;
+
+			if (lift_startup_grace_samples == 0)
+			{
+				tm_printf(
+					(UB*)"imu: PICKUP SAFETY ARMED\n"
+				);
+			}
+		}
+		else
+		{
+			update_lift_detector(
+				&raw_data,
+				flat_y,
+				state
+			);
+		}
 
 		runtime_x_sum += raw_data.x;
 		runtime_y_sum += raw_data.y;
@@ -1451,8 +1458,8 @@ EXPORT void imu_task(
 		runtime_samples = 0;
 
 		/*
-		 * Averaged samples are used for motion, terrain and lift processing
-		 * so short raw-sample spikes do not trigger the lift detector.
+		 * Averaged samples remain in use for motion and terrain processing.
+		 * Pickup safety is processed from raw samples above.
 		 */
 		update_motion_classifier(&imu_data);
 
@@ -1464,11 +1471,10 @@ EXPORT void imu_task(
 		y_change =
 			imu_data.y - flat_y;
 
-		update_lift_detector(
-			&imu_data,
-			flat_y,
-			state
-		);
+		if (!safety_stop_latched)
+		{
+			(void)motion_drive(S4_DRIVE_SPEED_MM_S, 0);
+		}
 
 		raw_range_update(
 			&raw_range,
@@ -1546,15 +1552,15 @@ EXPORT void imu_task(
 						);
 
 						tm_printf(
-							(UB*)">>> UPHILL DETECTED <<<\n"
+							(UB*)">>> UPHILL DETECTED - CONTINUING FORWARD <<<\n"
 						);
 
 						tm_printf(
-							(UB*)"STOP / HOLD THE IMU\n"
+							(UB*)"ROBOT CONTINUES FORWARD\n"
 						);
 
 						tm_printf(
-							(UB*)"DO NOT MOVE DURING NEXT COUNTDOWN\n"
+							(UB*)"IMU MONITORING CONTINUES\n"
 						);
 
 						tm_printf(
@@ -1566,16 +1572,13 @@ EXPORT void imu_task(
 						);
 
 						tm_printf(
-							(UB*)"Wait for GO NOW.\n"
+							(UB*)"Continue automatically.\n"
 						);
 
 						tm_printf(
-							(UB*)"Then continue towards PEAK.\n"
+							(UB*)"Continuing towards PEAK.\n"
 						);
 
-						preparation_countdown(
-							"CONTINUE TO PEAK"
-						);
 					}
 				}
 				else
@@ -1648,15 +1651,15 @@ EXPORT void imu_task(
 						);
 
 						tm_printf(
-							(UB*)">>> PEAK DETECTED <<<\n"
+							(UB*)">>> PEAK DETECTED - CONTINUING FORWARD <<<\n"
 						);
 
 						tm_printf(
-							(UB*)"STOP / HOLD THE IMU\n"
+							(UB*)"ROBOT CONTINUES FORWARD\n"
 						);
 
 						tm_printf(
-							(UB*)"DO NOT MOVE DURING NEXT COUNTDOWN\n"
+							(UB*)"IMU MONITORING CONTINUES\n"
 						);
 
 						tm_printf(
@@ -1668,16 +1671,13 @@ EXPORT void imu_task(
 						);
 
 						tm_printf(
-							(UB*)"Wait for GO NOW.\n"
+							(UB*)"Continue automatically.\n"
 						);
 
 						tm_printf(
-							(UB*)"Then move DOWNHILL.\n"
+							(UB*)"Continuing DOWNHILL.\n"
 						);
 
-						preparation_countdown(
-							"MOVE DOWNHILL"
-						);
 					}
 				}
 				else
@@ -1732,15 +1732,15 @@ EXPORT void imu_task(
 						);
 
 						tm_printf(
-							(UB*)">>> DOWNHILL DETECTED <<<\n"
+							(UB*)">>> DOWNHILL DETECTED - CONTINUING FORWARD <<<\n"
 						);
 
 						tm_printf(
-							(UB*)"STOP / HOLD THE IMU\n"
+							(UB*)"ROBOT CONTINUES FORWARD\n"
 						);
 
 						tm_printf(
-							(UB*)"DO NOT MOVE DURING NEXT COUNTDOWN\n"
+							(UB*)"IMU MONITORING CONTINUES\n"
 						);
 
 						tm_printf(
@@ -1752,16 +1752,13 @@ EXPORT void imu_task(
 						);
 
 						tm_printf(
-							(UB*)"Wait for GO NOW.\n"
+							(UB*)"Continue automatically.\n"
 						);
 
 						tm_printf(
-							(UB*)"Then return to original FLAT position.\n"
+							(UB*)"Continuing until FLAT is detected.\n"
 						);
 
-						preparation_countdown(
-							"RETURN TO FLAT"
-						);
 					}
 				}
 				else
