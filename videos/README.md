@@ -39,3 +39,5 @@ Newest at the bottom. Never delete a row.
 | Date | Subsystem | Test ID / demo | Commit | Student ID | Link | Notes |
 |---|---|---|---|---|---|---|
 | YYYY-MM-DD | S1 | S1-U03 | `abc1234` | | <https://youtu.be/...> | LED blinks at 2 Hz |
+| 2026-11-07 | S2 | S2-U07 | f1437b1 | 2503815 | https://youtu.be/saJUfMkZGOE | both wheels move forward |
+ 

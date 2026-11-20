@@ -1,35 +1,16 @@
+/*
+ * subsystem5.c
+ * Subsystem 5 -- Ultrasonic Obstacle Sensor Provider
+ */
+
 #include "subsystem5.h"
 #include "subsystem5_config.h"
 #include "drv_ultrasonic.h"
 #include "drv_servo.h"
+#include <stdint.h>
+#include <stdbool.h>
 
-#define SCAN_MIN_ANGLE   80
-#define SCAN_MAX_ANGLE   200
-#define SCAN_STEP_ANGLE  30
-
-/* Minimum valid HC-SR04 distance in cm to reject short/noisy echo glitches */
-#define MIN_VALID_CM     2.0f
-
-/* Pace loop so other subsystems and serial monitor run smoothly */
-#define LOOP_PACE_MS     150u
-
-static int next_scan_angle(int current, int *step)
-{
-    int next = current + *step;
-
-    if (next >= SCAN_MAX_ANGLE)
-    {
-        next = SCAN_MAX_ANGLE;
-        *step = -SCAN_STEP_ANGLE;
-    }
-    else if (next <= SCAN_MIN_ANGLE)
-    {
-        next = SCAN_MIN_ANGLE;
-        *step = SCAN_STEP_ANGLE;
-    }
-
-    return next;
-}
+static bool g_obstacle_blocked = false;
 
 static void obstacle_scan_task(INT stacd, void *extra)
 {
@@ -42,7 +23,7 @@ static void obstacle_scan_task(INT stacd, void *extra)
     ultrasonic_init();
     servo_init();
 
-    tm_printf("\nBuddy 5 Ultrasonic Test Started\n");
+    tm_printf("\nSubsystem 5: Ultrasonic Sensor Task Started\n");
 
     while (1)
     {
@@ -55,26 +36,28 @@ static void obstacle_scan_task(INT stacd, void *extra)
 
         float distance = ultrasonic_get_distance();
 
-        if (distance < 0.0f)
+        if (distance > 0.0f && distance < S5_DISTANCE_LIMIT)
         {
-            tm_printf("Angle %d deg: No echo\n", angle);
-        }
-        else if (distance < MIN_VALID_CM)
-        {
-            tm_printf("Angle %d deg: Short echo (%d cm)\n", angle, (int)distance);
-        }
-        else if (distance > S5_DISTANCE_LIMIT)
-        {
-            tm_printf("Angle %d deg: Out of range (%d cm)\n", angle, (int)distance);
+            if (!g_obstacle_blocked) {
+                tm_printf("[S5] Obstacle detected at %d cm!\n", (int)distance);
+            }
+            g_obstacle_blocked = true;
         }
         else
         {
-            tm_printf("Angle %d deg: %d cm\n", angle, (int)distance);
+            if (g_obstacle_blocked) {
+                tm_printf("[S5] Path clear.\n");
+            }
+            g_obstacle_blocked = false;
         }
 
-        angle = next_scan_angle(angle, &step);
-        tk_dly_tsk(LOOP_PACE_MS);
+        tk_dly_tsk(100); /* Sample every 100 ms */
     }
+}
+
+bool subsystem5_is_blocked(void)
+{
+    return g_obstacle_blocked;
 }
 
 EXPORT ER subsystem5_init(void)

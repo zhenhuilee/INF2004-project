@@ -1,0 +1,23 @@
+| Run  | Distance error (mm) | Travelled (mm) | Drift (mm) | Encoder L (mm) | Encoder R (mm) |
+|------|---------------------|----------------|------------|----------------|----------------|
+| 1    | +20                 | 1020           | 0          | 1002           | 1001           |
+| 2    | +14                 | 1014           | 0          | 1001           | 1001           |
+| 3    | +15                 | 1015           | 0          | 1001           | 1001           |
+| 4    | +13                 | 1013           | 0          | 1001           | 1000           |
+| 5    | +12                 | 1012           | 0          | 1001           | 1001           |
+| Mean | +14.8               | 1014.8         | 0          | 1001.2         | 1000.8         |
+ 
+Distance: mean error +14.8 mm (+1.5%), range 1012-1020 mm (spread 8 mm)
+Drift:    0 mm in all runs (no visible offset from the guide line)
+Result:   S2-U15 PASS (mean error within 2%)
+          S2-U16 PASS (drift within 30 mm)
+ 
+Note: the error is consistent (+1.5% every run), so MOTION_DIST_SCALE could be
+fine-tuned to 1.06 x 1014.8 / 1001.0 = 1.075.
+ 
+--- serial monitor output ---
+Run 1: [S2-TEST] forward 1000: done  wheel L=1002 mm  R=1001 mm  (encoder)
+Run 2: [S2-TEST] forward 1000: done  wheel L=1001 mm  R=1001 mm  (encoder)
+Run 3: [S2-TEST] forward 1000: done  wheel L=1001 mm  R=1001 mm  (encoder)
+Run 4: [S2-TEST] forward 1000: done  wheel L=1001 mm  R=1000 mm  (encoder)
+Run 5: [S2-TEST] forward 1000: done  wheel L=1001 mm  R=1001 mm  (encoder)

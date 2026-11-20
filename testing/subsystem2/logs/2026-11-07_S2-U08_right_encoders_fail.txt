@@ -1,0 +1,28 @@
+[S2] duty=0  count L=18931 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=18931  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=18931 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=18931  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=19186 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=19187  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=19530 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=1  R: A=0 B=0  isr=19530  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=19878 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=1  R: A=0 B=0  isr=19878  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=20227 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=20227  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=20576 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=1  R: A=0 B=0  isr=20576  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=20924 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=20925  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=21273 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=21273  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=21621 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=21621  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=350  count L=21969 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=1  R: A=0 B=0  isr=21970  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=0  count L=22318 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=22319  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=0  count L=22594 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=1  R: A=0 B=0  isr=22594  latched=00000000 00000000  inte=00000000 000c0c00
+[S2] duty=0  count L=22727 R=0  err=0  enc_init=0
+[ENC] L: A=0 B=0  R: A=0 B=0  isr=22727  latched=00000000 00000000  inte=00000000 000c0c00
