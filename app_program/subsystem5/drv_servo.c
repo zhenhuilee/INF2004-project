@@ -102,8 +102,8 @@ void servo_set_angle(int angle)
     if (angle < 0)
         angle = 0;
 
-    if (angle > 180)
-        angle = 180;
+    if (angle > 200)
+        angle = 200;
 
     pulse = SERVO_MIN_US +
         (((uint32_t)angle * (SERVO_MAX_US - SERVO_MIN_US)) / 180u);

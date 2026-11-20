@@ -3,8 +3,8 @@
 #include "drv_ultrasonic.h"
 #include "drv_servo.h"
 
-#define SCAN_MIN_ANGLE   30
-#define SCAN_MAX_ANGLE   150
+#define SCAN_MIN_ANGLE   80
+#define SCAN_MAX_ANGLE   200
 #define SCAN_STEP_ANGLE  30
 
 /* Minimum valid HC-SR04 distance in cm to reject short/noisy echo glitches */
