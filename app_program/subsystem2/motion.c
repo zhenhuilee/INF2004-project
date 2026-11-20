@@ -353,8 +353,8 @@ static void
 motion_debug_print (void)
 {
 #if S2_DEBUG
-	tm_printf((UB*)"[S2] mode=%d tgt=%d,%d spd=%d,%d duty=%d,%d cnt=%d,%d odo=%d err=%d\n",
-		  (INT)g_mode,
+	//tm_printf((UB*)"[S2] mode=%d tgt=%d,%d spd=%d,%d duty=%d,%d cnt=%d,%d odo=%d err=%d\n",
+		  ((INT)g_mode,
 		  round_i(g_target[WHEEL_L]), round_i(g_target[WHEEL_R]),
 		  round_i(g_speed[WHEEL_L]), round_i(g_speed[WHEEL_R]),
 		  g_duty[WHEEL_L], g_duty[WHEEL_R],
