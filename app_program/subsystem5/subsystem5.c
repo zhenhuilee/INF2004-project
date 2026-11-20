@@ -14,7 +14,8 @@ static bool g_obstacle_blocked = false;
 
 static void obstacle_scan_task(INT stacd, void *extra)
 {
-    float distance;
+    int angle = SCAN_MIN_ANGLE;
+    int step = SCAN_STEP_ANGLE;
 
     (void)stacd;
     (void)extra;
@@ -26,7 +27,14 @@ static void obstacle_scan_task(INT stacd, void *extra)
 
     while (1)
     {
-        distance = ultrasonic_get_distance();
+        servo_set_angle(angle);
+
+        if (S5_SCAN_DELAY_MS > 0)
+        {
+            tk_dly_tsk(S5_SCAN_DELAY_MS);
+        }
+
+        float distance = ultrasonic_get_distance();
 
         if (distance > 0.0f && distance < S5_DISTANCE_LIMIT)
         {
