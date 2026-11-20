@@ -11,7 +11,7 @@
 #define S4_PEAK_RISE_THRESHOLD           1500
 #define S4_DOWNHILL_RISE_THRESHOLD       2200
 #define S4_FLAT_RETURN_THRESHOLD         1000
-#define S4_CONFIRM_SAMPLES               3
+#define S4_CONFIRM_SAMPLES               5
 
 /* Empirical calibration: 4385 Y-axis counts measured for a 10 mm reference hump. */
 #define S4_HEIGHT_REFERENCE_COUNTS       4385
@@ -25,9 +25,11 @@
 #define S4_ACCEL_CONFIRM_SAMPLES         1
 #define S4_STATIONARY_CONFIRM_SAMPLES    4
 
-/* Keep the pickup detector values that passed the physical pickup test. */
-#define S4_LIFT_RAW_CHANGE_THRESHOLD     500000UL
-#define S4_LIFT_CONFIRM_SAMPLES          2
+/* Pickup is detected from a sustained filtered orientation change.
+ * Raw sample deltas are too sensitive to motor vibration. */
+#define S4_LIFT_TILT_THRESHOLD_DEG       12
+#define S4_LIFT_Y_CHANGE_THRESHOLD       2200
+#define S4_LIFT_CONFIRM_SAMPLES          4
 #define S4_LIFT_STARTUP_GRACE_SAMPLES   200
 
 #define S4_RUNTIME_FILTER_SAMPLES        10
@@ -38,7 +40,6 @@
 #define S4_TURN_END_SAMPLES              3
 #define S4_TURN_RATE_REPORT_SAMPLES      5
 
-
 static S4_IMU_STATUS imu_status;
 EXPORT S4_MOTION_STATUS s4_motion_status;
 
@@ -48,8 +49,6 @@ static BOOL motion_sample_valid;
 static INT acceleration_count;
 static INT stationary_count;
 
-static IMU_DATA previous_lift_sample;
-static BOOL previous_lift_valid;
 static BOOL lifted_active;
 static BOOL safety_stop_latched;
 static INT lift_count;
@@ -208,42 +207,27 @@ static void update_motion_classifier(IMU_DATA *current)
 
 static void lift_detector_reset(void)
 {
-    previous_lift_valid = FALSE;
     lifted_active = FALSE;
     safety_stop_latched = FALSE;
     lift_count = 0;
     update_motion_status(S4_MOTION_LIFT_BIT, FALSE);
 }
 
-static void update_lift_detector(IMU_DATA *current)
+static void update_lift_detector(IMU_DATA *current, INT flat_y)
 {
-    UW sample_change;
+    INT tilt_deg;
+    INT y_change;
 
     if (safety_stop_latched)
         return;
 
-    if (!previous_lift_valid)
-    {
-        previous_lift_sample = *current;
-        previous_lift_valid = TRUE;
-        return;
-    }
+    tilt_deg = abs_int(approximate_angle_deg(current->y, current->z));
+    y_change = abs_int(current->y - flat_y);
 
-    sample_change = sample_change_squared(&previous_lift_sample, current);
-    previous_lift_sample = *current;
-
-    if (sample_change >= S4_LIFT_RAW_CHANGE_THRESHOLD)
+    if (tilt_deg >= S4_LIFT_TILT_THRESHOLD_DEG &&
+        y_change >= S4_LIFT_Y_CHANGE_THRESHOLD)
     {
         lift_count++;
-
-        tm_printf(
-            (UB*)"imu: LIFT RAW change=%lu count=%d x=%d y=%d z=%d\n",
-            sample_change,
-            lift_count,
-            current->x,
-            current->y,
-            current->z
-        );
 
         if (lift_count >= S4_LIFT_CONFIRM_SAMPLES)
         {
@@ -253,15 +237,11 @@ static void update_lift_detector(IMU_DATA *current)
 
             update_motion_status(S4_MOTION_LIFT_BIT, TRUE);
             tm_printf(
-                (UB*)"imu: MOTION EVENT = LIFTED raw_change=%lu\n",
-                sample_change
+                (UB*)"imu: MOTION EVENT = LIFTED tilt=%d y_change=%d\n",
+                tilt_deg,
+                y_change
             );
 
-            /*
-             * Buddy4 requests the stop through Buddy2's public API.
-             * Pickup detection has been physically verified.  Actual wheel
-             * braking still requires Buddy2 motor-path validation.
-             */
             (void)motion_stop();
             tm_printf((UB*)"imu: SAFETY STOP REQUEST = 1\n");
         }
@@ -484,24 +464,12 @@ EXPORT void imu_task(INT stacd, void *exinf)
             continue;
         }
 
-        /* Pickup detection uses every raw sample for fast response. */
         if (lift_startup_grace_samples > 0)
         {
             lift_startup_grace_samples--;
 
             if (lift_startup_grace_samples == 0)
                 tm_printf((UB*)"imu: PICKUP SAFETY ARMED\n");
-        }
-        else
-        {
-            update_lift_detector(&raw_data);
-        }
-
-        /* Pickup is the end-of-run safety event. */
-        if (safety_stop_latched)
-        {
-            tk_dly_tsk(S4_RUNTIME_SAMPLE_DELAY_MS);
-            continue;
         }
 
         runtime_x_sum += raw_data.x;
@@ -523,6 +491,15 @@ EXPORT void imu_task(INT stacd, void *exinf)
         runtime_y_sum = 0;
         runtime_z_sum = 0;
         runtime_samples = 0;
+
+        if (lift_startup_grace_samples == 0)
+            update_lift_detector(&imu_data, flat_y);
+
+        if (safety_stop_latched)
+        {
+            tk_dly_tsk(S4_RUNTIME_SAMPLE_DELAY_MS);
+            continue;
+        }
 
         update_motion_classifier(&imu_data);
 
