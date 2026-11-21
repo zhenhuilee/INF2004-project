@@ -52,6 +52,7 @@ static INT stationary_count;
 static BOOL lifted_active;
 static BOOL safety_stop_latched;
 static INT lift_count;
+static INT lift_debug_count;
 
 static INT previous_heading;
 static BOOL heading_sample_valid;
@@ -210,6 +211,7 @@ static void lift_detector_reset(void)
     lifted_active = FALSE;
     safety_stop_latched = FALSE;
     lift_count = 0;
+    lift_debug_count = 0;
     update_motion_status(S4_MOTION_LIFT_BIT, FALSE);
 }
 
@@ -217,12 +219,25 @@ static void update_lift_detector(IMU_DATA *current, INT flat_y)
 {
     INT tilt_deg;
     INT y_change;
+    int32_t stop_result;
 
     if (safety_stop_latched)
         return;
 
     tilt_deg = abs_int(approximate_angle_deg(current->y, current->z));
     y_change = abs_int(current->y - flat_y);
+
+    /* Temporary diagnostics: approximately one line per second, plus
+     * extra readings when either lift criterion is close to triggering. */
+    lift_debug_count++;
+    if (lift_debug_count >= 10 ||
+        tilt_deg >= S4_LIFT_TILT_THRESHOLD_DEG ||
+        y_change >= S4_LIFT_Y_CHANGE_THRESHOLD)
+    {
+        tm_printf((UB*)"imu: LIFT CHECK tilt=%d y_change=%d confirm=%d/4\n",
+                  tilt_deg, y_change, lift_count);
+        lift_debug_count = 0;
+    }
 
     if (tilt_deg >= S4_LIFT_TILT_THRESHOLD_DEG &&
         y_change >= S4_LIFT_Y_CHANGE_THRESHOLD)
@@ -242,8 +257,9 @@ static void update_lift_detector(IMU_DATA *current, INT flat_y)
                 y_change
             );
 
-            (void)motion_stop();
-            tm_printf((UB*)"imu: SAFETY STOP REQUEST = 1\n");
+            stop_result = motion_stop();
+            tm_printf((UB*)"imu: SAFETY STOP REQUEST result=%ld\n",
+                      (long)stop_result);
         }
     }
     else
