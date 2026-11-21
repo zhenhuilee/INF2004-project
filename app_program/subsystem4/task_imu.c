@@ -11,7 +11,7 @@
 #define S4_PEAK_RISE_THRESHOLD           1500
 #define S4_DOWNHILL_RISE_THRESHOLD       2200
 #define S4_FLAT_RETURN_THRESHOLD         1000
-#define S4_CONFIRM_SAMPLES               5
+#define S4_CONFIRM_SAMPLES               2
 
 /* Provisional Y-axis calibration only; one-wheel roll can bias height. */
 #define S4_HEIGHT_REFERENCE_COUNTS       4385
@@ -423,6 +423,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
     INT lowest_x = 0;
     INT lowest_z = 0;
     INT transition_count = 0;
+    INT terrain_debug_count = 0;
     INT lift_startup_grace_samples = S4_LIFT_STARTUP_GRACE_SAMPLES;
     INT runtime_samples = 0;
     int32_t runtime_x_sum = 0;
@@ -532,6 +533,16 @@ EXPORT void imu_task(INT stacd, void *exinf)
             update_turning_detector(&mag_data);
 
         y_change = imu_data.y - flat_y;
+
+        /* One diagnostic per ~second; also show the first uphill candidate. */
+        if (++terrain_debug_count >= 10 ||
+            (state == S4_TERRAIN_FLAT &&
+             y_change < S4_UPHILL_THRESHOLD && transition_count == 0))
+        {
+            tm_printf((UB*)"imu: TERRAIN CHECK state=%d y_change=%d confirm=%d/%d\n",
+                      state, y_change, transition_count, S4_CONFIRM_SAMPLES);
+            terrain_debug_count = 0;
+        }
 
         switch (state)
         {
