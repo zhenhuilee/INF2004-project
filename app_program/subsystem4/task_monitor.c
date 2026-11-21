@@ -56,7 +56,7 @@ EXPORT void monitor_task(INT stacd, void *exinf)
 
 	tm_printf((UB*)"monitor: I am task %d\n", tk_get_tid());
 
-	(void)motion_move_forward(10000, MOTION_DEFAULT_SPEED); //added for motor testing standalone
+	
 
 	while (1) {
 		/* 1. Arm the one-shot alarm, then wait for EITHER bit.

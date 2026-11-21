@@ -493,7 +493,9 @@ EXPORT void imu_task(INT stacd, void *exinf)
         tm_printf((UB*)"imu: START IN %d\n", countdown);
         tk_dly_tsk(1000);
     }
-    tm_printf((UB*)"imu: GO - start driving now\n");
+    tm_printf((UB*)"imu: GO - requesting forward movement\n");
+tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
+          (long)motion_move_forward(10000, MOTION_DEFAULT_SPEED));
 
     while (1)
     {
