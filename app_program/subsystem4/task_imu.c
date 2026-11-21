@@ -63,8 +63,6 @@ static INT turn_rate_report_count;
 
 static INT current_hump_height_mm;
 static INT highest_hump_height_mm;
-static INT terrain_min_change;
-static INT terrain_max_change;
 
 static INT abs_int(INT value)
 {
@@ -425,7 +423,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
     INT lowest_x = 0;
     INT lowest_z = 0;
     INT transition_count = 0;
-    INT terrain_debug_count = 0;
     INT lift_startup_grace_samples = S4_LIFT_STARTUP_GRACE_SAMPLES;
     INT runtime_samples = 0;
     int32_t runtime_x_sum = 0;
@@ -474,8 +471,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
     flat_y = raw_data.y;
     lowest_y = flat_y;
-    terrain_min_change = 0;
-    terrain_max_change = 0;
 
     motion_classifier_reset();
     lift_detector_reset();
@@ -538,21 +533,9 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
         y_change = imu_data.y - flat_y;
 
-        if (y_change < terrain_min_change)
-            terrain_min_change = y_change;
-        if (y_change > terrain_max_change)
-            terrain_max_change = y_change;
-
-        /* Report filtered Y-axis extremes every ~second. */
-        if (++terrain_debug_count >= 10)
-        {
-            tm_printf((UB*)"imu: TERRAIN CHECK state=%d min=%d max=%d confirm=%d/%d\n",
-                      state, terrain_min_change, terrain_max_change,
-                      transition_count, S4_CONFIRM_SAMPLES);
-            terrain_min_change = 0;
-            terrain_max_change = 0;
-            terrain_debug_count = 0;
-        }
+        /* Temporary diagnostic: one line per filtered IMU reading (~100 ms). */
+        tm_printf((UB*)"imu: TERRAIN SAMPLE state=%d y_change=%d confirm=%d/%d\n",
+                  state, y_change, transition_count, S4_CONFIRM_SAMPLES);
 
         switch (state)
         {
