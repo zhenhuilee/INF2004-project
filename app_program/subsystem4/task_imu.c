@@ -563,11 +563,21 @@ tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
         if (imu_read_magnetometer(&mag_data))
             update_turning_detector(&mag_data);
 
-        y_change = imu_data.y - flat_y;
+       y_change = imu_data.y - flat_y;
 
-        /* The terrain FSM still uses the original 10-sample filtered Y. */
+/* Diagnostic: actual filtered values used by the terrain FSM. */
+tm_printf(
+    (UB*)"imu: FSM INPUT state=%d y=%d delta=%d confirm=%d threshold=%d\n",
+    state,
+    imu_data.y,
+    y_change,
+    transition_count,
+    S4_UPHILL_THRESHOLD
+);
 
-        switch (state)
+/* The terrain FSM still uses the original 10-sample filtered Y. */
+
+switch (state)
         {
         case S4_TERRAIN_FLAT:
             if (y_change < S4_UPHILL_THRESHOLD)
