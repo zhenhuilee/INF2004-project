@@ -428,6 +428,11 @@ EXPORT void imu_task(INT stacd, void *exinf)
     int32_t runtime_x_sum = 0;
     int32_t runtime_y_sum = 0;
     int32_t runtime_z_sum = 0;
+    /* Independent 5-raw-sample terrain diagnostic (~50 ms).
+     * Does not alter the 10-sample filter used by pickup safety and terrain FSM. */
+    int32_t diag_y_sum = 0;
+    INT diag_samples = 0;
+    UW diag_sample_number = 0;
 
     (void)stacd;
     (void)exinf;
@@ -480,6 +485,16 @@ EXPORT void imu_task(INT stacd, void *exinf)
     tm_printf((UB*)"imu: BASELINE READY y=%d\n", flat_y);
     tm_printf((UB*)"imu: HUMP DIAG calibration is provisional; compare with measured vertical height\n");
 
+    /* Countdown is a testing cue, not a motor-start command.
+     * Keep the robot stationary until GO. */
+    tm_printf((UB*)"imu: TEST COUNTDOWN - keep robot still\n");
+    for (INT countdown = 5; countdown > 0; countdown--)
+    {
+        tm_printf((UB*)"imu: START IN %d\n", countdown);
+        tk_dly_tsk(1000);
+    }
+    tm_printf((UB*)"imu: GO - start driving now\n");
+
     while (1)
     {
         if (!imu_read(&raw_data))
@@ -495,6 +510,21 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
             if (lift_startup_grace_samples == 0)
                 tm_printf((UB*)"imu: PICKUP SAFETY ARMED\n");
+        }
+
+        /* Extra diagnostic only: report 5-sample average Y independently. */
+        diag_y_sum += raw_data.y;
+        diag_samples++;
+        if (diag_samples >= 5)
+        {
+            INT diag_y_change = (INT)(diag_y_sum / diag_samples) - flat_y;
+            diag_sample_number++;
+            tm_printf((UB*)"imu: TERRAIN SAMPLE #%lu t~%lu ms y_change=%d state=%d\n",
+                      (unsigned long)diag_sample_number,
+                      (unsigned long)(diag_sample_number * 50UL),
+                      diag_y_change, state);
+            diag_y_sum = 0;
+            diag_samples = 0;
         }
 
         runtime_x_sum += raw_data.x;
@@ -533,9 +563,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
         y_change = imu_data.y - flat_y;
 
-        /* Temporary diagnostic: one line per filtered IMU reading (~100 ms). */
-        tm_printf((UB*)"imu: TERRAIN SAMPLE state=%d y_change=%d confirm=%d/%d\n",
-                  state, y_change, transition_count, S4_CONFIRM_SAMPLES);
+        /* The terrain FSM still uses the original 10-sample filtered Y. */
 
         switch (state)
         {
