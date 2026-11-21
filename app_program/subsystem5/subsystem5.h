@@ -14,4 +14,10 @@
 
 #define S5_PRI_MAIN	20		/* priority band 20-21 (TEAM.md) */
 
+/*Public interface for other subsystems */
+IMPORT BOOL subsystem5_is_blocked(void);
+
+/* Approximate obstacle width, in mm */
+IMPORT INT subsystem5_get_obstacle_width(void);
+
 #endif /* SUBSYSTEM5_H */
