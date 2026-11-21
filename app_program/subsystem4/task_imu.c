@@ -13,7 +13,7 @@
 #define S4_FLAT_RETURN_THRESHOLD         1000
 #define S4_CONFIRM_SAMPLES               5
 
-/* Empirical calibration: 4385 Y-axis counts measured for a 10 mm reference hump. */
+/* Provisional Y-axis calibration only; one-wheel roll can bias height. */
 #define S4_HEIGHT_REFERENCE_COUNTS       4385
 #define S4_HEIGHT_REFERENCE_MM           10
 
@@ -372,6 +372,12 @@ static INT estimate_hump_height_mm(INT flat_y, INT minimum_y)
 
 static void report_hump_height(INT flat_y, INT minimum_y)
 {
+    INT excursion = flat_y - minimum_y;
+
+    tm_printf((UB*)"imu: HUMP DIAG baseline_y=%d minimum_y=%d excursion=%d reference_counts=%d reference_mm=%d\n",
+              flat_y, minimum_y, excursion,
+              S4_HEIGHT_REFERENCE_COUNTS, S4_HEIGHT_REFERENCE_MM);
+
     current_hump_height_mm = estimate_hump_height_mm(flat_y, minimum_y);
 
     if (current_hump_height_mm > highest_hump_height_mm)
@@ -414,6 +420,8 @@ EXPORT void imu_task(INT stacd, void *exinf)
     INT flat_y;
     INT lowest_y;
     INT y_change;
+    INT lowest_x = 0;
+    INT lowest_z = 0;
     INT transition_count = 0;
     INT lift_startup_grace_samples = S4_LIFT_STARTUP_GRACE_SAMPLES;
     INT runtime_samples = 0;
@@ -470,6 +478,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
     update_imu_status(S4_TERRAIN_FLAT, FALSE);
 
     tm_printf((UB*)"imu: BASELINE READY y=%d\n", flat_y);
+    tm_printf((UB*)"imu: HUMP DIAG calibration is provisional; compare with measured vertical height\n");
 
     while (1)
     {
@@ -535,9 +544,12 @@ EXPORT void imu_task(INT stacd, void *exinf)
                 {
                     state = S4_TERRAIN_UPHILL;
                     lowest_y = imu_data.y;
+                    lowest_x = imu_data.x;
+                    lowest_z = imu_data.z;
                     transition_count = 0;
                     update_imu_status(state, FALSE);
-                    tm_printf((UB*)"imu: TERRAIN = UPHILL\n");
+                    tm_printf((UB*)"imu: TERRAIN = UPHILL baseline_y=%d xyz=%d,%d,%d\n",
+                              flat_y, imu_data.x, imu_data.y, imu_data.z);
                 }
             }
             else
@@ -548,7 +560,11 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
         case S4_TERRAIN_UPHILL:
             if (imu_data.y < lowest_y)
+            {
                 lowest_y = imu_data.y;
+                lowest_x = imu_data.x;
+                lowest_z = imu_data.z;
+            }
 
             if ((imu_data.y - lowest_y) > S4_PEAK_RISE_THRESHOLD)
             {
@@ -556,6 +572,10 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
                 if (transition_count >= S4_CONFIRM_SAMPLES)
                 {
+                    tm_printf((UB*)"imu: HUMP DIAG minimum_xyz=%d,%d,%d current_xyz=%d,%d,%d tilt_yz_deg=%d\n",
+                              lowest_x, lowest_y, lowest_z,
+                              imu_data.x, imu_data.y, imu_data.z,
+                              approximate_angle_deg(lowest_y, lowest_z));
                     report_hump_height(flat_y, lowest_y);
                     state = S4_TERRAIN_PEAK;
                     transition_count = 0;
@@ -579,7 +599,8 @@ EXPORT void imu_task(INT stacd, void *exinf)
                     state = S4_TERRAIN_DOWNHILL;
                     transition_count = 0;
                     update_imu_status(state, FALSE);
-                    tm_printf((UB*)"imu: TERRAIN = DOWNHILL\n");
+                    tm_printf((UB*)"imu: TERRAIN = DOWNHILL xyz=%d,%d,%d\n",
+                              imu_data.x, imu_data.y, imu_data.z);
                 }
             }
             else
