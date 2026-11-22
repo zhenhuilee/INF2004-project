@@ -11,8 +11,20 @@
 
 #include "../app.h"
 
-#define S3_PRI_CONSUMER		16	/* priority band 16-17 (TEAM.md) */
-#define S3_BATCH_SIZE		5	/* report to subsystem 4 every N samples */
+#define S3_PRI_CONSUMER     16  
+#define S3_BATCH_SIZE       5   
+
+/* IR Sensors and LED pin mapping */
+#define S3_IR_PIN_LEFT    0   /* Left tracking sensor */
+#define S3_IR_PIN_CENTER  16   /* Center tracking sensor */
+#define S3_IR_PIN_RIGHT   6   /* Right barcode sensor */
+#define S3_LED_PIN_1      1   /* Status LED */
+
+/* 4 Possible Decoded Instructions (Encoded in 2 bits: 0 to 3) */
+#define S3_INST_NONE      0x00 /* 00: no barcode detected */
+#define S3_INST_LEFT      0x01 /* 01: go left at crossroads */
+#define S3_INST_RIGHT  0x02 /* 10: go right at crossroadse */
+#define S3_INST_STRAIGHT      0x03 /* 11: go straight at crossroads */
 
 /* IF-01: send SAMPLE_MSG (subsystem2.h) here with tk_snd_mbx */
 IMPORT ID	mbx_samples;
