@@ -318,6 +318,7 @@ WIFI_INCLUDES := -I"$(WIFIDIR)" \
                  -I"$(PICO_SDK_PATH)/src/boards/include" \
                  -I"$(PICO_SDK_PATH)/src/common/pico_base_headers/include" \
                  -I"$(PICO_SDK_PATH)/src/common/hardware_claim/include" \
+                 -I"$(PICO_SDK_PATH)/src/common/pico_time/include" \
                  -I"$(PICO_SDK_PATH)/src/common/pico_binary_info/include" \
                  -I"$(PICO_SDK_PATH)/src/common/pico_util/include" \
                  -I"$(PICO_SDK_PATH)/src/rp2040/pico_platform/include" \

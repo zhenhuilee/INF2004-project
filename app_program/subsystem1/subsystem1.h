@@ -24,4 +24,18 @@ IMPORT ID	cyc_led;
 IMPORT void	led_task(INT stacd, void *exinf);
 IMPORT void	led_cyclic_handler(void *exinf);
 
+/* Buddy 1: MQTT command message buffer */
+#define S1_CMD_BUFFER_SIZE  64
+#define S1_CMD_MAX_SIZE     1
+
+/* Public interface for NavigationTask */
+IMPORT ID mbf_buddy1_cmd;
+/* Buddy 1 outgoing MQTT telemetry buffer */
+#define S1_TX_BUFFER_SIZE  256
+#define S1_TX_MAX_SIZE     32
+
+IMPORT ID mbf_buddy1_tx;
+
 #endif /* SUBSYSTEM1_H */
+
+
