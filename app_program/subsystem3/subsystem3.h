@@ -37,6 +37,8 @@ typedef struct {
 	INT	min;
 	INT	max;
 	W	sum;
+	UB	barcode_history;
+	UB	last_instruction;
 } APP_STATS;
 
 IMPORT ID		mtx_stats;
