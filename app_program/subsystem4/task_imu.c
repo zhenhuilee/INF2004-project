@@ -410,6 +410,38 @@ EXPORT BOOL s4_is_safety_stop_latched(void)
     return safety_stop_latched;
 }
 
+/*
+ * Compact Buddy4 status encoder (provisional transport format).
+ * Byte 0: terrain bits 0-1, IMU fault bit 2,
+ *         acceleration bit 3, turning bit 4, pickup bit 5.
+ * Byte 1: current hump height in mm, saturated to 0..255.
+ * This does not change the original height or IMU/motor logic.
+ * Consumers must coordinate concurrent reads for a consistent snapshot.
+ */
+EXPORT void s4_encode_compact_status(UB output[2])
+{
+    INT height;
+    S4_IMU_STATUS status;
+    S4_MOTION_STATUS motion;
+
+    if (output == 0)
+        return;
+
+    height = s4_get_current_hump_height_mm();
+    status = s4_get_imu_status();
+    motion = s4_motion_status;
+
+    if (height < 0)
+        height = 0;
+    else if (height > 255)
+        height = 255;
+
+    output[0] = (UB)((status & S4_TERRAIN_BITS) |
+                     (status & S4_IMU_FAULT_BIT) |
+                     ((motion & S4_MOTION_BITS) << 3));
+    output[1] = (UB)height;
+}
+
 EXPORT void imu_task(INT stacd, void *exinf)
 {
     IMU_DATA imu_data;
