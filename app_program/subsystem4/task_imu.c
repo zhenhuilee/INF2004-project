@@ -52,7 +52,6 @@ static INT stationary_count;
 static BOOL lifted_active;
 static BOOL safety_stop_latched;
 static INT lift_count;
-static INT lift_debug_count;
 
 static INT previous_heading;
 static BOOL heading_sample_valid;
@@ -211,7 +210,6 @@ static void lift_detector_reset(void)
     lifted_active = FALSE;
     safety_stop_latched = FALSE;
     lift_count = 0;
-    lift_debug_count = 0;
     update_motion_status(S4_MOTION_LIFT_BIT, FALSE);
 }
 
@@ -226,18 +224,6 @@ static void update_lift_detector(IMU_DATA *current, INT flat_y)
 
     tilt_deg = abs_int(approximate_angle_deg(current->y, current->z));
     y_change = abs_int(current->y - flat_y);
-
-    /* Temporary diagnostics: approximately one line per second, plus
-     * extra readings when either lift criterion is close to triggering. */
-    lift_debug_count++;
-    if (lift_debug_count >= 10 ||
-        tilt_deg >= S4_LIFT_TILT_THRESHOLD_DEG ||
-        y_change >= S4_LIFT_Y_CHANGE_THRESHOLD)
-    {
-        tm_printf((UB*)"imu: LIFT CHECK tilt=%d y_change=%d confirm=%d/4\n",
-                  tilt_deg, y_change, lift_count);
-        lift_debug_count = 0;
-    }
 
     if (tilt_deg >= S4_LIFT_TILT_THRESHOLD_DEG &&
         y_change >= S4_LIFT_Y_CHANGE_THRESHOLD)
@@ -372,12 +358,6 @@ static INT estimate_hump_height_mm(INT flat_y, INT minimum_y)
 
 static void report_hump_height(INT flat_y, INT minimum_y)
 {
-    INT excursion = flat_y - minimum_y;
-
-    tm_printf((UB*)"imu: HUMP DIAG baseline_y=%d minimum_y=%d excursion=%d reference_counts=%d reference_mm=%d\n",
-              flat_y, minimum_y, excursion,
-              S4_HEIGHT_REFERENCE_COUNTS, S4_HEIGHT_REFERENCE_MM);
-
     current_hump_height_mm = estimate_hump_height_mm(flat_y, minimum_y);
 
     if (current_hump_height_mm > highest_hump_height_mm)
@@ -452,19 +432,12 @@ EXPORT void imu_task(INT stacd, void *exinf)
     INT flat_y;
     INT lowest_y;
     INT y_change;
-    INT lowest_x = 0;
-    INT lowest_z = 0;
     INT transition_count = 0;
     INT lift_startup_grace_samples = S4_LIFT_STARTUP_GRACE_SAMPLES;
     INT runtime_samples = 0;
     int32_t runtime_x_sum = 0;
     int32_t runtime_y_sum = 0;
     int32_t runtime_z_sum = 0;
-    /* Independent 5-raw-sample terrain diagnostic (~50 ms).
-     * Does not alter the 10-sample filter used by pickup safety and terrain FSM. */
-    int32_t diag_y_sum = 0;
-    INT diag_samples = 0;
-    UW diag_sample_number = 0;
 
     (void)stacd;
     (void)exinf;
@@ -515,7 +488,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
     update_imu_status(S4_TERRAIN_FLAT, FALSE);
 
     tm_printf((UB*)"imu: BASELINE READY y=%d\n", flat_y);
-    tm_printf((UB*)"imu: HUMP DIAG calibration is provisional; compare with measured vertical height\n");
 
     /* Countdown is a testing cue, not a motor-start command.
      * Keep the robot stationary until GO. */
@@ -526,8 +498,8 @@ EXPORT void imu_task(INT stacd, void *exinf)
         tk_dly_tsk(1000);
     }
     tm_printf((UB*)"imu: GO - requesting forward movement\n");
-tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
-          (long)motion_move_forward(10000, MOTION_DEFAULT_SPEED));
+    tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
+              (long)motion_move_forward(10000, MOTION_DEFAULT_SPEED));
 
     while (1)
     {
@@ -544,21 +516,6 @@ tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
 
             if (lift_startup_grace_samples == 0)
                 tm_printf((UB*)"imu: PICKUP SAFETY ARMED\n");
-        }
-
-        /* Extra diagnostic only: report 5-sample average Y independently. */
-        diag_y_sum += raw_data.y;
-        diag_samples++;
-        if (diag_samples >= 5)
-        {
-            INT diag_y_change = (INT)(diag_y_sum / diag_samples) - flat_y;
-            diag_sample_number++;
-            tm_printf((UB*)"imu: TERRAIN SAMPLE #%lu t~%lu ms y_change=%d state=%d\n",
-                      (unsigned long)diag_sample_number,
-                      (unsigned long)(diag_sample_number * 50UL),
-                      diag_y_change, state);
-            diag_y_sum = 0;
-            diag_samples = 0;
         }
 
         runtime_x_sum += raw_data.x;
@@ -595,21 +552,9 @@ tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
         if (imu_read_magnetometer(&mag_data))
             update_turning_detector(&mag_data);
 
-       y_change = imu_data.y - flat_y;
+        y_change = imu_data.y - flat_y;
 
-/* Diagnostic: actual filtered values used by the terrain FSM. */
-tm_printf(
-    (UB*)"imu: FSM INPUT state=%d y=%d delta=%d confirm=%d threshold=%d\n",
-    state,
-    imu_data.y,
-    y_change,
-    transition_count,
-    S4_UPHILL_THRESHOLD
-);
-
-/* The terrain FSM still uses the original 10-sample filtered Y. */
-
-switch (state)
+        switch (state)
         {
         case S4_TERRAIN_FLAT:
             if (y_change < S4_UPHILL_THRESHOLD)
@@ -620,8 +565,6 @@ switch (state)
                 {
                     state = S4_TERRAIN_UPHILL;
                     lowest_y = imu_data.y;
-                    lowest_x = imu_data.x;
-                    lowest_z = imu_data.z;
                     transition_count = 0;
                     update_imu_status(state, FALSE);
                     tm_printf((UB*)"imu: TERRAIN = UPHILL baseline_y=%d xyz=%d,%d,%d\n",
@@ -638,8 +581,6 @@ switch (state)
             if (imu_data.y < lowest_y)
             {
                 lowest_y = imu_data.y;
-                lowest_x = imu_data.x;
-                lowest_z = imu_data.z;
             }
 
             if ((imu_data.y - lowest_y) > S4_PEAK_RISE_THRESHOLD)
@@ -648,10 +589,6 @@ switch (state)
 
                 if (transition_count >= S4_CONFIRM_SAMPLES)
                 {
-                    tm_printf((UB*)"imu: HUMP DIAG minimum_xyz=%d,%d,%d current_xyz=%d,%d,%d tilt_yz_deg=%d\n",
-                              lowest_x, lowest_y, lowest_z,
-                              imu_data.x, imu_data.y, imu_data.z,
-                              approximate_angle_deg(lowest_y, lowest_z));
                     report_hump_height(flat_y, lowest_y);
                     state = S4_TERRAIN_PEAK;
                     transition_count = 0;
