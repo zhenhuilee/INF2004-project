@@ -14,5 +14,7 @@
  * than once -- a second call while already connecting/connected is a no-op.    
  */
 void mqtt_utk_start(void);
+void mqtt_utk_service_tx(void);
+
 
 #endif /* MQTT_UTK_H */

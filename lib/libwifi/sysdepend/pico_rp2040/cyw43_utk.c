@@ -4,6 +4,7 @@
 #include "cyw43_country.h"
 #include "cyw43_utk.h"
 
+
 #if TM_NET_LWIP
 /* lwip_init() must run before cyw43_wifi_set_up() -- cyw43_cb_tcpip_init()
  * (lib/cyw43-driver/src/cyw43_lwip.c, unmodified upstream) calls netif_add()
@@ -340,6 +341,7 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
          * again after connection_cb() schedules a retry. */
         if(radio_status.link_status == CYW43_LINK_UP) {
             mqtt_utk_start();
+            mqtt_utk_service_tx();
         }
 #endif
 #endif

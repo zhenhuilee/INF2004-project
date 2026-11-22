@@ -105,3 +105,42 @@ int buddy1_receive_command(buddy1_command_t *cmd)
 
     return 0;
 }
+
+int buddy1_send_telemetry(const uint8_t *data, uint16_t len)
+{
+    ER er;
+
+    if (data == NULL || len == 0 || len > BUDDY1_TELEMETRY_MAX_SIZE) {
+        return -1;
+    }
+
+    if (mbf_buddy1_tx <= 0) {
+        return -1;
+    }
+
+    er = tk_snd_mbf(
+        mbf_buddy1_tx,
+        (void *)data,
+        (INT)len,
+        TMO_POL
+    );
+
+    return (er == E_OK) ? 0 : -1;
+}
+
+int buddy1_receive_telemetry(uint8_t *data)
+{
+    INT len;
+
+    if (data == NULL || mbf_buddy1_tx <= 0) {
+        return -1;
+    }
+
+    len = tk_rcv_mbf(
+        mbf_buddy1_tx,
+        data,
+        TMO_POL
+    );
+
+    return (len > 0) ? (int)len : -1;
+}
