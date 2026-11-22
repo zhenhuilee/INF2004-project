@@ -21,6 +21,7 @@
 #include "wifi_secrets.h"
 #include "mqtt_utk.h"
 #include <tm/tmonitor.h>
+#include "../../../../app_program/subsystem1/buddy1_comms.h"
 
 #define MQTT_UTK_HEARTBEAT_MS   5000
 #define MQTT_UTK_KEEPALIVE_S    60
@@ -79,12 +80,34 @@ static void incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 			rx_truncated = 1;
 		}
 	}
-
+	
 	if((flags & MQTT_DATA_FLAG_LAST) != 0) {
-		rx_data[rx_len] = '\0';
-		tm_printf((UB*)"mqtt: RX [%s] \"%s\"%s\n", rx_topic, rx_data,
-			  rx_truncated? " (truncated)": "");
-	}
+    buddy1_command_t cmd;
+
+    rx_data[rx_len] = '\0';
+
+    tm_printf((UB*)"mqtt: RX [%s] \"%s\"%s\n",
+              rx_topic, rx_data,
+              rx_truncated ? " (truncated)" : "");
+
+    if(!rx_truncated) {
+        cmd = buddy1_parse_command((const char *)rx_data);
+
+        if(cmd != BUDDY1_CMD_INVALID &&
+           cmd != BUDDY1_CMD_NONE) {
+
+            tm_printf((UB*)"buddy1: command parsed = %d\n",
+                      (int)cmd);
+
+            if(buddy1_queue_command(cmd) == 0) {
+                tm_printf((UB*)"buddy1: command queued = %d\n",
+                          (int)cmd);
+            } else {
+                tm_printf((UB*)"buddy1: command queue failed\n");
+            }
+        }
+    }
+}
 }
 
 static void subscribe_done_cb(void *arg, err_t result)
