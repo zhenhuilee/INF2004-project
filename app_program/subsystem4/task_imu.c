@@ -7,13 +7,14 @@
 #include "drv_imu.h"
 #include "../subsystem2/motion.h"
 
-#define S4_UPHILL_THRESHOLD              -700
-#define S4_PEAK_RISE_THRESHOLD           1500
-#define S4_DOWNHILL_RISE_THRESHOLD       2200
+#define S4_UPHILL_THRESHOLD              700
+#define S4_PEAK_RISE_THRESHOLD           350 /* test value; verify against logs */
+#define S4_DOWNHILL_RISE_THRESHOLD       650 /* test value; verify against logs */
 #define S4_FLAT_RETURN_THRESHOLD         1000
 #define S4_CONFIRM_SAMPLES               2
 
-/* Provisional Y-axis calibration only; one-wheel roll can bias height. */
+/* Provisional Y-axis calibration from ~10 mm reference hump;
+ * actual height accuracy and orientation must be verified on hardware. */
 #define S4_HEIGHT_REFERENCE_COUNTS       4385
 #define S4_HEIGHT_REFERENCE_MM           10
 
@@ -346,7 +347,7 @@ static void update_turning_detector(IMU_DATA *mag_data)
 
 static INT estimate_hump_height_mm(INT flat_y, INT minimum_y)
 {
-    INT excursion = flat_y - minimum_y;
+    INT excursion = minimum_y - flat_y;
 
     if (excursion <= 0)
         return 0;
@@ -358,6 +359,12 @@ static INT estimate_hump_height_mm(INT flat_y, INT minimum_y)
 
 static void report_hump_height(INT flat_y, INT minimum_y)
 {
+    INT excursion = minimum_y - flat_y;
+
+    tm_printf((UB*)"imu: HUMP DIAG baseline_y=%d maximum_y=%d excursion=%d reference_counts=%d reference_mm=%d\n",
+              flat_y, minimum_y, excursion,
+              S4_HEIGHT_REFERENCE_COUNTS, S4_HEIGHT_REFERENCE_MM);
+
     current_hump_height_mm = estimate_hump_height_mm(flat_y, minimum_y);
 
     if (current_hump_height_mm > highest_hump_height_mm)
@@ -430,7 +437,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
     S4_TERRAIN_STATE state = S4_TERRAIN_FLAT;
 
     INT flat_y;
-    INT lowest_y;
+    INT lowest_y; /* Positive-Y terrain maximum; retained name for minimal change. */
     INT y_change;
     INT transition_count = 0;
     INT lift_startup_grace_samples = S4_LIFT_STARTUP_GRACE_SAMPLES;
@@ -557,7 +564,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
         switch (state)
         {
         case S4_TERRAIN_FLAT:
-            if (y_change < S4_UPHILL_THRESHOLD)
+            if (y_change > S4_UPHILL_THRESHOLD)
             {
                 transition_count++;
 
@@ -578,17 +585,21 @@ EXPORT void imu_task(INT stacd, void *exinf)
             break;
 
         case S4_TERRAIN_UPHILL:
-            if (imu_data.y < lowest_y)
+            if (imu_data.y > lowest_y)
             {
                 lowest_y = imu_data.y;
             }
 
-            if ((imu_data.y - lowest_y) > S4_PEAK_RISE_THRESHOLD)
+            if ((lowest_y - imu_data.y) > S4_PEAK_RISE_THRESHOLD)
             {
                 transition_count++;
 
                 if (transition_count >= S4_CONFIRM_SAMPLES)
                 {
+                    tm_printf((UB*)"imu: HUMP DIAG maximum_xyz=%d,%d,%d current_xyz=%d,%d,%d tilt_yz_deg=%d\n",
+                              lowest_x, lowest_y, lowest_z,
+                              imu_data.x, imu_data.y, imu_data.z,
+                              approximate_angle_deg(lowest_y, lowest_z));
                     report_hump_height(flat_y, lowest_y);
                     state = S4_TERRAIN_PEAK;
                     transition_count = 0;
@@ -603,7 +614,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
             break;
 
         case S4_TERRAIN_PEAK:
-            if ((imu_data.y - lowest_y) > S4_DOWNHILL_RISE_THRESHOLD)
+            if ((lowest_y - imu_data.y) > S4_DOWNHILL_RISE_THRESHOLD)
             {
                 transition_count++;
 
