@@ -1,0 +1,339 @@
+---- Opened the serial port COM9 ----
+monitor: batch  n=10 last=90 from core 1
+monitor: t=3355772646 ms  samples=10  min=0 max=90 avg=45  free slots=4  free blocks=4
+monitor: batch  n=15 last=60 from core 1
+monitor: t=3355774196 ms  samples=15  min=0 max=100 avg=56  free slots=4  free blocks=4
+imu: STATUS CHANGE = 0x00 terrain=0 fault=0
+imu: BASELINE READY y=-166
+imu: HUMP DIAG calibration is provisional; compare with measured vertical height
+imu: TEST COUNTDOWN - keep robot still
+imu: START IN 5
+imu: START IN 4
+monitor: batch  n=20 last=10 from core 1
+monitor: t=3355775746 ms  samples=20  min=0 max=100 avg=50  free slots=4  free blocks=4
+imu: START IN 3
+monitor: batch  n=25 last=40 from core 1
+monitor: t=3355777296 ms  samples=25  min=0 max=100 avg=44  free slots=4  free blocks=4
+imu: START IN 2
+imu: START IN 1
+monitor: batch  n=30 last=90 from core 1
+monitor: t=3355778846 ms  samples=30  min=0 max=100 avg=48  free slots=4  free blocks=4
+monitor: LED task paused, state=WAIT+SUSPEND, pri=13
+imu: GO - requesting forward movement
+imu: FORWARD REQUEST result=1
+imu: TERRAIN SAMPLE #1 t~50 ms y_change=-781 state=0
+imu: TERRAIN SAMPLE #2 t~100 ms y_change=-26 state=0
+imu: FSM INPUT state=0 y=-569 delta=-403 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #3 t~150 ms y_change=-269 state=0
+imu: TERRAIN SAMPLE #4 t~200 ms y_change=-486 state=0
+imu: FSM INPUT state=0 y=-544 delta=-378 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #5 t~250 ms y_change=217 state=0
+imu: TERRAIN SAMPLE #6 t~300 ms y_change=870 state=0
+imu: MOTION STATUS = 0x01 accelerating=1 turning=0 lifted=0
+imu: MOTION = ACCELERATING
+imu: FSM INPUT state=0 y=377 delta=543 confirm=0 threshold=700
+monitor: batch  n=35 last=60 from core 1
+monitor: t=3355780396 ms  samples=35  min=0 max=100 avg=52  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #7 t~350 ms y_change=870 state=0
+imu: TERRAIN SAMPLE #8 t~400 ms y_change=64 state=0
+imu: FSM INPUT state=0 y=300 delta=466 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #9 t~450 ms y_change=-26 state=0
+imu: TERRAIN SAMPLE #10 t~500 ms y_change=1778 state=0
+imu: FSM INPUT state=0 y=710 delta=876 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #11 t~550 ms y_change=1574 state=0
+imu: TERRAIN SAMPLE #12 t~600 ms y_change=1638 state=0
+imu: FSM INPUT state=0 y=1440 delta=1606 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x01 terrain=1 fault=0
+imu: TERRAIN = UPHILL baseline_y=-166 xyz=-1785,1440,15283
+imu: TERRAIN SAMPLE #13 t~650 ms y_change=870 state=1
+imu: TERRAIN SAMPLE #14 t~700 ms y_change=959 state=1
+imu: FSM INPUT state=1 y=748 delta=914 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #15 t~750 ms y_change=-64 state=1
+imu: TERRAIN SAMPLE #16 t~800 ms y_change=946 state=1
+imu: FSM INPUT state=1 y=275 delta=441 confirm=1 threshold=700
+imu: HUMP DIAG maximum_xyz=-1785,1440,15283 current_xyz=-1075,275,15750 tilt_yz_deg=4
+imu: HUMP DIAG baseline_y=-166 maximum_y=1440 excursion=1606 reference_counts=4385 reference_mm=10
+imu: HUMP HEIGHT = 4 mm highest=4 mm
+imu: STATUS CHANGE = 0x02 terrain=2 fault=0
+imu: TERRAIN = PEAK
+monitor: batch  n=40 last=10 from core 1
+monitor: t=3355781946 ms  samples=40  min=0 max=100 avg=50  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #17 t~850 ms y_change=3506 state=2
+imu: TERRAIN SAMPLE #18 t~900 ms y_change=166 state=2
+imu: FSM INPUT state=2 y=1670 delta=1836 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #19 t~950 ms y_change=1049 state=2
+imu: TERRAIN SAMPLE #20 t~1000 ms y_change=64 state=2
+imu: FSM INPUT state=2 y=390 delta=556 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #21 t~1050 ms y_change=3878 state=2
+imu: TERRAIN SAMPLE #22 t~1100 ms y_change=-1024 state=2
+imu: FSM INPUT state=2 y=1260 delta=1426 confirm=1 threshold=700
+imu: TERRAIN SAMPLE #23 t~1150 ms y_change=-192 state=2
+imu: TERRAIN SAMPLE #24 t~1200 ms y_change=0 state=2
+imu: FSM INPUT state=2 y=-262 delta=-96 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #25 t~1250 ms y_change=524 state=2
+imu: TERRAIN SAMPLE #26 t~1300 ms y_change=-115 state=2
+imu: FSM INPUT state=2 y=38 delta=204 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x03 terrain=3 fault=0
+imu: TERRAIN = DOWNHILL xyz=-288,38,15283
+monitor: batch  n=45 last=40 from core 1
+monitor: t=3355783496 ms  samples=45  min=0 max=100 avg=46  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #27 t~1350 ms y_change=383 state=3
+imu: TERRAIN SAMPLE #28 t~1400 ms y_change=154 state=3
+imu: FSM INPUT state=3 y=102 delta=268 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #29 t~1450 ms y_change=383 state=3
+imu: TERRAIN SAMPLE #30 t~1500 ms y_change=-384 state=3
+imu: FSM INPUT state=3 y=-166 delta=0 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x00 terrain=0 fault=0
+imu: TERRAIN = FLAT hump complete highest=4 mm
+imu: TERRAIN SAMPLE #31 t~1550 ms y_change=-243 state=0
+imu: TERRAIN SAMPLE #32 t~1600 ms y_change=-256 state=0
+imu: FSM INPUT state=0 y=-416 delta=-250 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #33 t~1650 ms y_change=38 state=0
+imu: TERRAIN SAMPLE #34 t~1700 ms y_change=-371 state=0
+imu: FSM INPUT state=0 y=-332 delta=-166 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #35 t~1750 ms y_change=0 state=0
+imu: TERRAIN SAMPLE #36 t~1800 ms y_change=1177 state=0
+imu: FSM INPUT state=0 y=422 delta=588 confirm=0 threshold=700
+monitor: batch  n=50 last=90 from core 1
+monitor: t=3355785046 ms  samples=50  min=0 max=100 avg=49  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #37 t~1850 ms y_change=-563 state=0
+imu: TERRAIN SAMPLE #38 t~1900 ms y_change=-653 state=0
+imu: FSM INPUT state=0 y=-774 delta=-608 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #39 t~1950 ms y_change=1023 state=0
+imu: PICKUP SAFETY ARMED
+imu: TERRAIN SAMPLE #40 t~2000 ms y_change=-243 state=0
+imu: FSM INPUT state=0 y=224 delta=390 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #41 t~2050 ms y_change=473 state=0
+imu: TERRAIN SAMPLE #42 t~2100 ms y_change=-26 state=0
+imu: FSM INPUT state=0 y=57 delta=223 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #43 t~2150 ms y_change=434 state=0
+imu: TERRAIN SAMPLE #44 t~2200 ms y_change=550 state=0
+imu: FSM INPUT state=0 y=326 delta=492 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #45 t~2250 ms y_change=281 state=0
+imu: TERRAIN SAMPLE #46 t~2300 ms y_change=-538 state=0
+imu: FSM INPUT state=0 y=-294 delta=-128 confirm=0 threshold=700
+monitor: batch  n=55 last=60 from core 1
+monitor: t=3355786596 ms  samples=55  min=0 max=100 avg=51  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #47 t~2350 ms y_change=-1267 state=0
+imu: TERRAIN SAMPLE #48 t~2400 ms y_change=1305 state=0
+imu: FSM INPUT state=0 y=-147 delta=19 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #49 t~2450 ms y_change=-410 state=0
+imu: TERRAIN SAMPLE #50 t~2500 ms y_change=-870 state=0
+imu: FSM INPUT state=0 y=-806 delta=-640 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #51 t~2550 ms y_change=-832 state=0
+imu: TERRAIN SAMPLE #52 t~2600 ms y_change=729 state=0
+imu: FSM INPUT state=0 y=-217 delta=-51 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #53 t~2650 ms y_change=204 state=0
+imu: TERRAIN SAMPLE #54 t~2700 ms y_change=626 state=0
+imu: FSM INPUT state=0 y=249 delta=415 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #55 t~2750 ms y_change=1433 state=0
+imu: TERRAIN SAMPLE #56 t~2800 ms y_change=26 state=0
+imu: FSM INPUT state=0 y=563 delta=729 confirm=0 threshold=700
+monitor: batch  n=60 last=10 from core 1
+monitor: t=3355788146 ms  samples=60  min=0 max=100 avg=50  free slots=4  free blocks=4
+monitor: LED task resumed, state=WAIT, pri=12
+imu: TERRAIN SAMPLE #57 t~2850 ms y_change=934 state=0
+imu: TERRAIN SAMPLE #58 t~2900 ms y_change=550 state=0
+imu: LIFT CHECK tilt=1 y_change=742 confirm=0/4
+imu: FSM INPUT state=0 y=576 delta=742 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x01 terrain=1 fault=0
+imu: TERRAIN = UPHILL baseline_y=-166 xyz=-2067,576,15552
+imu: TERRAIN SAMPLE #59 t~2950 ms y_change=-640 state=1
+imu: TERRAIN SAMPLE #60 t~3000 ms y_change=-1357 state=1
+imu: FSM INPUT state=1 y=-1164 delta=-998 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #61 t~3050 ms y_change=383 state=1
+imu: TERRAIN SAMPLE #62 t~3100 ms y_change=-192 state=1
+imu: FSM INPUT state=1 y=-70 delta=96 confirm=1 threshold=700
+imu: HUMP DIAG maximum_xyz=-2067,576,15552 current_xyz=-633,-70,15731 tilt_yz_deg=1
+imu: HUMP DIAG baseline_y=-166 maximum_y=576 excursion=742 reference_counts=4385 reference_mm=10
+imu: HUMP HEIGHT = 2 mm highest=4 mm
+imu: STATUS CHANGE = 0x02 terrain=2 fault=0
+imu: TERRAIN = PEAK
+imu: TERRAIN SAMPLE #63 t~3150 ms y_change=242 state=2
+imu: TERRAIN SAMPLE #64 t~3200 ms y_change=-154 state=2
+imu: FSM INPUT state=2 y=-121 delta=45 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #65 t~3250 ms y_change=601 state=2
+imu: TERRAIN SAMPLE #66 t~3300 ms y_change=-1088 state=2
+imu: FSM INPUT state=2 y=-409 delta=-243 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x03 terrain=3 fault=0
+imu: TERRAIN = DOWNHILL xyz=-473,-409,15673
+monitor: batch  n=65 last=40 from core 1
+monitor: t=3355789696 ms  samples=65  min=0 max=100 avg=47  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #67 t~3350 ms y_change=-320 state=3
+imu: TERRAIN SAMPLE #68 t~3400 ms y_change=-806 state=3
+imu: FSM INPUT state=3 y=-729 delta=-563 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #69 t~3450 ms y_change=306 state=3
+imu: TERRAIN SAMPLE #70 t~3500 ms y_change=-806 state=3
+imu: MOTION STATUS = 0x00 accelerating=0 turning=0 lifted=0
+imu: MOTION = STATIONARY
+imu: FSM INPUT state=3 y=-416 delta=-250 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x00 terrain=0 fault=0
+imu: TERRAIN = FLAT hump complete highest=4 mm
+imu: TERRAIN SAMPLE #71 t~3550 ms y_change=51 state=0
+imu: TERRAIN SAMPLE #72 t~3600 ms y_change=-384 state=0
+imu: FSM INPUT state=0 y=-332 delta=-166 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #73 t~3650 ms y_change=178 state=0
+imu: TERRAIN SAMPLE #74 t~3700 ms y_change=-307 state=0
+imu: FSM INPUT state=0 y=-230 delta=-64 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #75 t~3750 ms y_change=-141 state=0
+imu: TERRAIN SAMPLE #76 t~3800 ms y_change=0 state=0
+imu: MOTION STATUS = 0x01 accelerating=1 turning=0 lifted=0
+imu: MOTION = ACCELERATING
+imu: FSM INPUT state=0 y=-236 delta=-70 confirm=0 threshold=700
+monitor: batch  n=70 last=90 from core 1
+monitor: t=3355791246 ms  samples=70  min=0 max=100 avg=49  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #77 t~3850 ms y_change=51 state=0
+imu: TERRAIN SAMPLE #78 t~3900 ms y_change=-13 state=0
+imu: LIFT CHECK tilt=0 y_change=19 confirm=0/4
+imu: FSM INPUT state=0 y=-147 delta=19 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #79 t~3950 ms y_change=-38 state=0
+imu: TERRAIN SAMPLE #80 t~4000 ms y_change=434 state=0
+imu: FSM INPUT state=0 y=32 delta=198 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #81 t~4050 ms y_change=217 state=0
+imu: TERRAIN SAMPLE #82 t~4100 ms y_change=64 state=0
+imu: FSM INPUT state=0 y=-25 delta=141 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #83 t~4150 ms y_change=-282 state=0
+imu: TERRAIN SAMPLE #84 t~4200 ms y_change=434 state=0
+imu: MOTION STATUS = 0x00 accelerating=0 turning=0 lifted=0
+imu: MOTION = STATIONARY
+imu: FSM INPUT state=0 y=-89 delta=77 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #85 t~4250 ms y_change=959 state=0
+imu: TERRAIN SAMPLE #86 t~4300 ms y_change=-154 state=0
+imu: FSM INPUT state=0 y=236 delta=402 confirm=0 threshold=700
+monitor: batch  n=75 last=60 from core 1
+monitor: t=3355792796 ms  samples=75  min=0 max=100 avg=51  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #87 t~4350 ms y_change=281 state=0
+imu: TERRAIN SAMPLE #88 t~4400 ms y_change=26 state=0
+imu: FSM INPUT state=0 y=-12 delta=154 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #89 t~4450 ms y_change=-13 state=0
+imu: TERRAIN SAMPLE #90 t~4500 ms y_change=204 state=0
+imu: FSM INPUT state=0 y=-70 delta=96 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #91 t~4550 ms y_change=-755 state=0
+imu: TERRAIN SAMPLE #92 t~4600 ms y_change=422 state=0
+imu: FSM INPUT state=0 y=-332 delta=-166 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #93 t~4650 ms y_change=486 state=0
+imu: TERRAIN SAMPLE #94 t~4700 ms y_change=1279 state=0
+imu: MOTION STATUS = 0x01 accelerating=1 turning=0 lifted=0
+imu: MOTION = ACCELERATING
+imu: FSM INPUT state=0 y=716 delta=882 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #95 t~4750 ms y_change=614 state=0
+imu: TERRAIN SAMPLE #96 t~4800 ms y_change=4966 state=0
+imu: LIFT CHECK tilt=6 y_change=2790 confirm=0/4
+imu: FSM INPUT state=0 y=2624 delta=2790 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x01 terrain=1 fault=0
+imu: TERRAIN = UPHILL baseline_y=-166 xyz=-1203,2624,17216
+monitor: batch  n=80 last=10 from core 1
+monitor: t=3355794346 ms  samples=80  min=0 max=100 avg=50  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #97 t~4850 ms y_change=1906 state=1
+imu: TERRAIN SAMPLE #98 t~4900 ms y_change=409 state=1
+imu: FSM INPUT state=1 y=992 delta=1158 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #99 t~4950 ms y_change=729 state=1
+imu: TERRAIN SAMPLE #100 t~5000 ms y_change=678 state=1
+imu: FSM INPUT state=1 y=537 delta=703 confirm=1 threshold=700
+imu: HUMP DIAG maximum_xyz=-1203,2624,17216 current_xyz=-1222,537,15353 tilt_yz_deg=6
+imu: HUMP DIAG baseline_y=-166 maximum_y=2624 excursion=2790 reference_counts=4385 reference_mm=10
+imu: HUMP HEIGHT = 6 mm highest=6 mm
+imu: STATUS CHANGE = 0x02 terrain=2 fault=0
+imu: TERRAIN = PEAK
+imu: TERRAIN SAMPLE #101 t~5050 ms y_change=754 state=2
+imu: TERRAIN SAMPLE #102 t~5100 ms y_change=511 state=2
+imu: FSM INPUT state=2 y=467 delta=633 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #103 t~5150 ms y_change=1062 state=2
+imu: TERRAIN SAMPLE #104 t~5200 ms y_change=-51 state=2
+imu: FSM INPUT state=2 y=339 delta=505 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x03 terrain=3 fault=0
+imu: TERRAIN = DOWNHILL xyz=-262,339,15916
+imu: TERRAIN SAMPLE #105 t~5250 ms y_change=-845 state=3
+imu: TERRAIN SAMPLE #106 t~5300 ms y_change=-986 state=3
+imu: FSM INPUT state=3 y=-1081 delta=-915 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #107 t~5350 ms y_change=-806 state=3
+monitor: batch  n=85 last=40 from core 1
+monitor: t=3355795896 ms  samples=85  min=0 max=100 avg=48  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #108 t~5400 ms y_change=524 state=3
+imu: FSM INPUT state=3 y=-307 delta=-141 confirm=1 threshold=700
+imu: STATUS CHANGE = 0x00 terrain=0 fault=0
+imu: TERRAIN = FLAT hump complete highest=6 mm
+imu: TERRAIN SAMPLE #109 t~5450 ms y_change=-218 state=0
+imu: TERRAIN SAMPLE #110 t~5500 ms y_change=217 state=0
+imu: FSM INPUT state=0 y=-166 delta=0 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #111 t~5550 ms y_change=115 state=0
+imu: TERRAIN SAMPLE #112 t~5600 ms y_change=242 state=0
+imu: FSM INPUT state=0 y=12 delta=178 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #113 t~5650 ms y_change=358 state=0
+imu: TERRAIN SAMPLE #114 t~5700 ms y_change=-307 state=0
+imu: FSM INPUT state=0 y=-140 delta=26 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #115 t~5750 ms y_change=-218 state=0
+imu: TERRAIN SAMPLE #116 t~5800 ms y_change=-77 state=0
+imu: LIFT CHECK tilt=0 y_change=147 confirm=0/4
+imu: FSM INPUT state=0 y=-313 delta=-147 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #117 t~5850 ms y_change=306 state=0
+monitor: batch  n=90 last=90 from core 1
+monitor: t=3355797446 ms  samples=90  min=0 max=100 avg=49  free slots=4  free blocks=4
+monitor: LED task paused, state=WAIT+SUSPEND, pri=13
+imu: TERRAIN SAMPLE #118 t~5900 ms y_change=-282 state=0
+imu: MOTION STATUS = 0x00 accelerating=0 turning=0 lifted=0
+imu: MOTION = STATIONARY
+imu: FSM INPUT state=0 y=-153 delta=13 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #119 t~5950 ms y_change=-794 state=0
+imu: TERRAIN SAMPLE #120 t~6000 ms y_change=-26 state=0
+imu: MOTION STATUS = 0x01 accelerating=1 turning=0 lifted=0
+imu: MOTION = ACCELERATING
+imu: FSM INPUT state=0 y=-576 delta=-410 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #121 t~6050 ms y_change=-205 state=0
+imu: TERRAIN SAMPLE #122 t~6100 ms y_change=-602 state=0
+imu: FSM INPUT state=0 y=-569 delta=-403 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #123 t~6150 ms y_change=-397 state=0
+imu: TERRAIN SAMPLE #124 t~6200 ms y_change=-1050 state=0
+imu: FSM INPUT state=0 y=-889 delta=-723 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #125 t~6250 ms y_change=-2624 state=0
+imu: TERRAIN SAMPLE #126 t~6300 ms y_change=-5427 state=0
+imu: LIFT CHECK tilt=14 y_change=4026 confirm=0/4
+imu: MOTION STATUS = 0x03 accelerating=1 turning=1 lifted=0
+imu: MOTION EVENT = TURNING
+imu: TURN RATE = 150 deg/s
+imu: FSM INPUT state=0 y=-4192 delta=-4026 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #127 t~6350 ms y_change=-5747 state=0
+monitor: batch  n=95 last=60 from core 1
+monitor: t=3355798996 ms  samples=95  min=0 max=100 avg=51  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #128 t~6400 ms y_change=-8000 state=0
+imu: LIFT CHECK tilt=25 y_change=6874 confirm=1/4
+imu: FSM INPUT state=0 y=-7040 delta=-6874 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #129 t~6450 ms y_change=-9050 state=0
+imu: TERRAIN SAMPLE #130 t~6500 ms y_change=-8947 state=0
+imu: LIFT CHECK tilt=50 y_change=8998 confirm=2/4
+imu: FSM INPUT state=0 y=-9164 delta=-8998 confirm=0 threshold=700
+imu: TERRAIN SAMPLE #131 t~6550 ms y_change=-8538 state=0
+imu: TERRAIN SAMPLE #132 t~6600 ms y_change=-8576 state=0
+imu: LIFT CHECK tilt=38 y_change=8557 confirm=3/4
+imu: MOTION STATUS = 0x07 accelerating=1 turning=1 lifted=1
+imu: MOTION EVENT = LIFTED tilt=38 y_change=8557
+imu: SAFETY STOP REQUEST result=2
+[S2] STOP RECEIVED
+[S2] BRAKE APPLIED
+imu: TERRAIN SAMPLE #133 t~6650 ms y_change=-8678 state=0
+imu: TERRAIN SAMPLE #134 t~6700 ms y_change=-8768 state=0
+imu: TERRAIN SAMPLE #135 t~6750 ms y_change=-8678 state=0
+imu: TERRAIN SAMPLE #136 t~6800 ms y_change=-8602 state=0
+imu: TERRAIN SAMPLE #137 t~6850 ms y_change=-8410 state=0
+monitor: batch  n=100 last=10 from core 1
+monitor: t=3355800546 ms  samples=100  min=0 max=100 avg=50  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #138 t~6900 ms y_change=-7885 state=0
+imu: TERRAIN SAMPLE #139 t~6950 ms y_change=-7846 state=0
+imu: TERRAIN SAMPLE #140 t~7000 ms y_change=-7181 state=0
+imu: TERRAIN SAMPLE #141 t~7050 ms y_change=-6861 state=0
+imu: TERRAIN SAMPLE #142 t~7100 ms y_change=-6899 state=0
+imu: TERRAIN SAMPLE #143 t~7150 ms y_change=-6285 state=0
+imu: TERRAIN SAMPLE #144 t~7200 ms y_change=-5786 state=0
+imu: TERRAIN SAMPLE #145 t~7250 ms y_change=-5363 state=0
+imu: TERRAIN SAMPLE #146 t~7300 ms y_change=-5120 state=0
+imu: TERRAIN SAMPLE #147 t~7350 ms y_change=-4851 state=0
+imu: TERRAIN SAMPLE #148 t~7400 ms y_change=-4493 state=0
+monitor: batch  n=105 last=40 from core 1
+monitor: t=3355802096 ms  samples=105  min=0 max=100 avg=48  free slots=4  free blocks=4
+imu: TERRAIN SAMPLE #149 t~7450 ms y_change=-3789 state=0
+imu: TERRAIN SAMPLE #150 t~7500 ms y_change=-4070 state=0
+imu: TERRAIN SAMPLE #151 t~7550 ms y_change=-3418 state=0
+imu: TERRAIN SAMPLE #152 t~7600 ms y_change=-3251 state=0
+imu: TERRAIN SAMPLE #153 t~7650 ms y_change=-2867 state=0
+imu: TERRAIN SAMPLE #154 t~7700 ms y_change=-2611 state=0
+---- Closed the serial port COM9 ----
