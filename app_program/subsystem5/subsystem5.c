@@ -36,7 +36,7 @@
 #define MIN_VALID_CM        2.0f
 #define MAX_VALID_CM        400.0f
 #define BAND_TOLERANCE_CM   25.0f
-#define LOOP_PACE_MS        40
+#define LOOP_PACE_MS        20 //from 40
 #define S5_PI_F             3.14159265f
 
 static bool g_obstacle_blocked = false;

@@ -12,7 +12,7 @@
 #define S5_SCAN_COUNT 5
 #define S5_DISTANCE_LIMIT 10.0f
 
-#define S5_SCAN_DELAY_MS 100
+#define S5_SCAN_DELAY_MS 10 //change from 100 
 #define S5_ECHO_TIMEOUT_US 30000
 
 #endif
