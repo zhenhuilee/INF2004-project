@@ -144,6 +144,7 @@ EXPORT void consumer_task(INT stacd, void *exinf)
     bypass_state_t bypass_state = BYPASS_NONE;
     uint32_t step_start_us = 0u;
     uint32_t drive_past_ms = 500u;
+    uint32_t last_junc_ms = 0u;
 
 	(void)stacd; (void)exinf;
 
@@ -248,24 +249,44 @@ EXPORT void consumer_task(INT stacd, void *exinf)
 
         /* 3. Line Tracking & Motor Control via Subsystem 2 API (slower speed) */
         int32_t base_speed = 80;   /* mm/s forward speed */
-        int32_t steer_term = 0;    
+        int32_t steer_term = 0;
+        uint32_t now_ms = now_us / 1000u;
 
-        if (left && !center) {
-            steer_term = -30;
-        } else if (!left && center) {
-            steer_term = 30;
-        } else {
-            steer_term = 0;
-        }
-
-        /* Send continuous drive command safely without constant overrides */
-        (void)motion_drive(base_speed, steer_term);
-
-        /* --- LIVE IR MONITORING PRINT STATEMENT (ONLY ON BLACK DETECTION) --- */
-        if (!left || !center || !right) {
-            tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] L:%u C:%u R:%u | Steer:%ld\n",
-                       left, center, right, (long)steer_term);
+        if (left && center && ((now_ms - last_junc_ms) >= 600u || last_junc_ms == 0u)) {
+            last_junc_ms = now_ms;
+            tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | TurnLeft90\n",
+                       left, center, right);
             tm_putstring(debug_buf);
+
+            /* Drive forward a few cm so the robot pivots right on the junction */
+            int32_t fwd_seq = motion_move_forward(90, base_speed);
+            if (fwd_seq > 0) {
+                (void)motion_wait_done(fwd_seq, 2000);
+            }
+
+            int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
+            if (turn_seq > 0) {
+                (void)motion_wait_done(turn_seq, 3000);
+                last_junc_ms = S5_TIMER_TIMELR / 1000u;
+            }
+        } else {
+            if (left && !center) {
+                steer_term = -30; //right
+            } else if (!left && center) {
+                steer_term = 30;  //left
+            } else {
+                steer_term = 0;
+            }
+
+            /* Send continuous drive command safely without constant overrides */
+            (void)motion_drive(base_speed, steer_term);
+
+            /* --- LIVE IR MONITORING PRINT STATEMENT (ONLY ON BLACK DETECTION) --- */
+            if (!left || !center || !right) {
+                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] L:%u C:%u R:%u | Steer:%ld\n",
+                           left, center, right, (long)steer_term);
+                tm_putstring(debug_buf);
+            }
         }
 
         /* 4. Check for a sample message with a 20 ms timeout */
