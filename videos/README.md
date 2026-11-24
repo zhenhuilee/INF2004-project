@@ -40,4 +40,6 @@ Newest at the bottom. Never delete a row.
 |---|---|---|---|---|---|---|
 | YYYY-MM-DD | S1 | S1-U03 | `abc1234` | | <https://youtu.be/...> | LED blinks at 2 Hz |
 | 2026-11-07 | S2 | S2-U07 | f1437b1 | 2503815 | https://youtu.be/saJUfMkZGOE | both wheels move forward |
+| 2026-11-24 | S3 | S3-IR01 | 2fd6900 | 2503123 | ___ | IR sensor tracks line with left/right steering |
+
  
