@@ -28,9 +28,9 @@
 
 /* Pickup is detected from a sustained filtered orientation change.
  * Raw sample deltas are too sensitive to motor vibration. */
-#define S4_LIFT_TILT_THRESHOLD_DEG       12
+#define S4_LIFT_TILT_THRESHOLD_DEG       8
 #define S4_LIFT_Y_CHANGE_THRESHOLD       2200
-#define S4_LIFT_CONFIRM_SAMPLES          4
+#define S4_LIFT_CONFIRM_SAMPLES          2
 #define S4_LIFT_STARTUP_GRACE_SAMPLES   200
 
 #define S4_RUNTIME_FILTER_SAMPLES        10
@@ -235,8 +235,8 @@ static void update_lift_detector(IMU_DATA *current, INT flat_y)
         tilt_deg >= S4_LIFT_TILT_THRESHOLD_DEG ||
         y_change >= S4_LIFT_Y_CHANGE_THRESHOLD)
     {
-        tm_printf((UB*)"imu: LIFT CHECK tilt=%d y_change=%d confirm=%d/4\n",
-                  tilt_deg, y_change, lift_count);
+        tm_printf((UB*)"imu: LIFT CHECK tilt=%d y_change=%d confirm=%d/%d\n",
+                  tilt_deg, y_change, lift_count, S4_LIFT_CONFIRM_SAMPLES);
         lift_debug_count = 0;
     }
 
@@ -528,7 +528,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
     }
     tm_printf((UB*)"imu: GO - requesting forward movement\n");
 tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
-          (long)motion_move_forward(10000, MOTION_DEFAULT_SPEED));
+          (long)motion_move_forward(10000, 80)); //MOTION_DEFAULT_SPEED
 
     while (1)
     {
