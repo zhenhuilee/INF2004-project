@@ -26,8 +26,11 @@
 #include "subsystem2.h"
 #include "motion.h"
 #include "drv_motor.h"
+#include "motion.h"
 #include "drv_encoder.h"
 #include "motion_config.h"
+
+#define S2_BRINGUP 0
 
 #define PI_F			(3.14159265f)
 #define MM_PER_TICK		((PI_F * MOTION_WHEEL_DIAMETER_MM * MOTION_DIST_SCALE) \

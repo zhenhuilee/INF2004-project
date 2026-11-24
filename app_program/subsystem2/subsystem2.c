@@ -12,23 +12,31 @@ EXPORT ID	mpf_samples;
 static ER
 s2_example_init (void)
 {
-	T_CSEM	csem = {0};
-	T_CMPF	cmpf = {0};
+    T_CSEM  csem = {0};
+    T_CMPF  cmpf = {0};
+    ER      er;
 
-	csem.sematr  = TA_TFIFO;
-	csem.isemcnt = S2_POOL_COUNT;
-	csem.maxsem  = S2_POOL_COUNT;
-	sem_slots = tk_cre_sem(&csem);
-	if (sem_slots < E_OK)
-	{
-		return sem_slots;
-	}
+    /* 1. Initialize Subsystem 2 Motion Control (Motors, Encoders, Command Buffer) */
+    er = motion_init();
+    if (er < E_OK) {
+        return er;
+    }
 
-	cmpf.mpfatr = TA_TFIFO | TA_RNG3;
-	cmpf.mpfcnt = S2_POOL_COUNT;
-	cmpf.blfsz  = sizeof(SAMPLE_MSG);
-	mpf_samples = tk_cre_mpf(&cmpf);
-	return (mpf_samples < E_OK) ? mpf_samples : E_OK;
+    /* 2. Semaphore: counter of free "slots" */
+    csem.sematr  = TA_TFIFO;
+    csem.isemcnt = S2_POOL_COUNT;
+    csem.maxsem  = S2_POOL_COUNT;
+    sem_slots = tk_cre_sem(&csem);
+    if (sem_slots < E_OK) {
+        return sem_slots;
+    }
+
+    /* 3. Fixed-size memory pool */
+    cmpf.mpfatr = TA_TFIFO | TA_RNG3;
+    cmpf.mpfcnt = S2_POOL_COUNT;
+    cmpf.blfsz  = sizeof(SAMPLE_MSG);
+    mpf_samples = tk_cre_mpf(&cmpf);
+    return (mpf_samples < E_OK) ? mpf_samples : E_OK;
 }
 /* ---- end of example ------------------------------------------------- */
 
@@ -46,25 +54,16 @@ EXPORT ER subsystem2_init(void)
 
 EXPORT ER subsystem2_start(void)
 {
-	ID	tid;
-	ER	er;
+    ID tid_producer, tid_motion;
 
-	er = (ER)motion_start();
-	if (er < E_OK)
-	{
-		return er;
-	}
+    /* Start the sample producer task on core 2 (TP_PRC2) */
+    tid_producer = app_start_task(producer_task, S2_PRI_PRODUCER, TP_PRC2,
+                "producer_task");
+    if (tid_producer < E_OK) {
+        return tid_producer;
+    }
 
-#if S2_BRINGUP == 2
-	tid = app_start_task((FP)motion_demo_task, S2_PRI_DEMO, 0, "motion_demo");
-	if (tid < E_OK)
-	{
-		return tid;
-	}
-#endif
-
-	/* EXAMPLE producer: delete with the example block */
-	tid = app_start_task(producer_task, S2_PRI_PRODUCER, TP_PRC2,
-			     "producer_task");
-	return (tid < E_OK) ? tid : E_OK;
+    /* Start the motion control task */
+    tid_motion = motion_start();
+    return (tid_motion < E_OK) ? tid_motion : E_OK;
 }

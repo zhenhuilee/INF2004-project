@@ -7,13 +7,14 @@
 #include "drv_imu.h"
 #include "../subsystem2/motion.h"
 
-#define S4_UPHILL_THRESHOLD              -700
-#define S4_PEAK_RISE_THRESHOLD           1500
-#define S4_DOWNHILL_RISE_THRESHOLD       2200
+#define S4_UPHILL_THRESHOLD              700
+#define S4_PEAK_RISE_THRESHOLD           350 /* test value; verify against logs */
+#define S4_DOWNHILL_RISE_THRESHOLD       650 /* test value; verify against logs */
 #define S4_FLAT_RETURN_THRESHOLD         1000
 #define S4_CONFIRM_SAMPLES               2
 
-/* Provisional Y-axis calibration only; one-wheel roll can bias height. */
+/* Provisional Y-axis calibration from ~10 mm reference hump;
+ * actual height accuracy and orientation must be verified on hardware. */
 #define S4_HEIGHT_REFERENCE_COUNTS       4385
 #define S4_HEIGHT_REFERENCE_MM           10
 
@@ -346,7 +347,7 @@ static void update_turning_detector(IMU_DATA *mag_data)
 
 static INT estimate_hump_height_mm(INT flat_y, INT minimum_y)
 {
-    INT excursion = flat_y - minimum_y;
+    INT excursion = minimum_y - flat_y;
 
     if (excursion <= 0)
         return 0;
@@ -430,7 +431,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
     S4_TERRAIN_STATE state = S4_TERRAIN_FLAT;
 
     INT flat_y;
-    INT lowest_y;
+    INT lowest_y; /* Positive-Y terrain maximum; retained name for minimal change. */
     INT y_change;
     INT transition_count = 0;
     INT lift_startup_grace_samples = S4_LIFT_STARTUP_GRACE_SAMPLES;
@@ -489,17 +490,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
     tm_printf((UB*)"imu: BASELINE READY y=%d\n", flat_y);
 
-    /* Countdown is a testing cue, not a motor-start command.
-     * Keep the robot stationary until GO. */
-    tm_printf((UB*)"imu: TEST COUNTDOWN - keep robot still\n");
-    for (INT countdown = 5; countdown > 0; countdown--)
-    {
-        tm_printf((UB*)"imu: START IN %d\n", countdown);
-        tk_dly_tsk(1000);
-    }
-    tm_printf((UB*)"imu: GO - requesting forward movement\n");
-    tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
-              (long)motion_move_forward(10000, MOTION_DEFAULT_SPEED));
 
     while (1)
     {
@@ -557,7 +547,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
         switch (state)
         {
         case S4_TERRAIN_FLAT:
-            if (y_change < S4_UPHILL_THRESHOLD)
+            if (y_change > S4_UPHILL_THRESHOLD)
             {
                 transition_count++;
 
@@ -578,12 +568,12 @@ EXPORT void imu_task(INT stacd, void *exinf)
             break;
 
         case S4_TERRAIN_UPHILL:
-            if (imu_data.y < lowest_y)
+            if (imu_data.y > lowest_y)
             {
                 lowest_y = imu_data.y;
             }
 
-            if ((imu_data.y - lowest_y) > S4_PEAK_RISE_THRESHOLD)
+            if ((lowest_y - imu_data.y) > S4_PEAK_RISE_THRESHOLD)
             {
                 transition_count++;
 
@@ -603,7 +593,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
             break;
 
         case S4_TERRAIN_PEAK:
-            if ((imu_data.y - lowest_y) > S4_DOWNHILL_RISE_THRESHOLD)
+            if ((lowest_y - imu_data.y) > S4_DOWNHILL_RISE_THRESHOLD)
             {
                 transition_count++;
 
