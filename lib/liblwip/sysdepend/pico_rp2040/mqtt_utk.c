@@ -128,6 +128,41 @@ static void publish_done_cb(void *arg, err_t result)
 	}
 }
 
+void mqtt_utk_service_tx(void)
+{
+    uint8_t payload[BUDDY1_TELEMETRY_MAX_SIZE];
+    int len;
+    err_t err;
+
+    if (client == NULL || !mqtt_client_is_connected(client)) {
+        return;
+    }
+
+    len = buddy1_receive_telemetry(payload);
+
+    if (len <= 0) {
+        return;
+    }
+
+    err = mqtt_publish(
+        client,
+        MQTT_TOPIC,
+        payload,
+        (u16_t)len,
+        0,  /* qos */
+        0,  /* retain */
+        publish_done_cb,
+        NULL
+    );
+
+    if (err == ERR_OK) {
+        tm_printf((UB*)"mqtt: telemetry TX %d bytes\n", len);
+    } else {
+        tm_printf((UB*)"mqtt: telemetry publish failed, err=%d\n",
+                  (int)err);
+    }
+}
+
 static void heartbeat_timeout(void *arg)
 {
 	static unsigned int	count = 0;

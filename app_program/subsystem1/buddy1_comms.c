@@ -105,3 +105,66 @@ int buddy1_receive_command(buddy1_command_t *cmd)
 
     return 0;
 }
+
+int buddy1_send_telemetry(const uint8_t *data, uint16_t len)
+{
+    ER er;
+
+    if (data == NULL || len == 0 || len > BUDDY1_TELEMETRY_MAX_SIZE) {
+        return -1;
+    }
+
+    if (mbf_buddy1_tx <= 0) {
+        return -1;
+    }
+
+    er = tk_snd_mbf(
+        mbf_buddy1_tx,
+        (void *)data,
+        (INT)len,
+        TMO_POL
+    );
+
+    return (er == E_OK) ? 0 : -1;
+}
+
+int buddy1_receive_telemetry(uint8_t *data)
+{
+    INT len;
+
+    if (data == NULL || mbf_buddy1_tx <= 0) {
+        return -1;
+    }
+
+    len = tk_rcv_mbf(
+        mbf_buddy1_tx,
+        data,
+        TMO_POL
+    );
+
+    return (len > 0) ? (int)len : -1;
+}
+
+int buddy1_send_packet(buddy1_telemetry_type_t type,
+                       const uint8_t *payload,
+                       uint8_t payload_len)
+{
+    uint8_t packet[BUDDY1_TELEMETRY_MAX_SIZE];
+    uint8_t i;
+
+    if (payload_len > (BUDDY1_TELEMETRY_MAX_SIZE - 1)) {
+        return -1;
+    }
+
+    if (payload_len > 0 && payload == NULL) {
+        return -1;
+    }
+
+    packet[0] = (uint8_t)type;
+
+    for (i = 0; i < payload_len; i++) {
+        packet[i + 1] = payload[i];
+    }
+
+    return buddy1_send_telemetry(packet, payload_len + 1);
+}
