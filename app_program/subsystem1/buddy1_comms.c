@@ -144,3 +144,27 @@ int buddy1_receive_telemetry(uint8_t *data)
 
     return (len > 0) ? (int)len : -1;
 }
+
+int buddy1_send_packet(buddy1_telemetry_type_t type,
+                       const uint8_t *payload,
+                       uint8_t payload_len)
+{
+    uint8_t packet[BUDDY1_TELEMETRY_MAX_SIZE];
+    uint8_t i;
+
+    if (payload_len > (BUDDY1_TELEMETRY_MAX_SIZE - 1)) {
+        return -1;
+    }
+
+    if (payload_len > 0 && payload == NULL) {
+        return -1;
+    }
+
+    packet[0] = (uint8_t)type;
+
+    for (i = 0; i < payload_len; i++) {
+        packet[i + 1] = payload[i];
+    }
+
+    return buddy1_send_telemetry(packet, payload_len + 1);
+}
