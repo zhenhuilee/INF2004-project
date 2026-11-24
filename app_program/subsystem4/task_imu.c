@@ -493,17 +493,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
     tm_printf((UB*)"imu: BASELINE READY y=%d\n", flat_y);
 
-    /* Isolated Buddy 4 test: start only after calibration and countdown. */
-    for (INT countdown = 5; countdown > 0; countdown--)
-    {
-        tm_printf((UB*)"imu: START IN %d\n", countdown);
-        tk_dly_tsk(1000);
-    }
-    tm_printf((UB*)"imu: GO - requesting forward movement\n");
-    /* Distance-based command avoids motion_drive()'s 500 ms watchdog.
-     * 1000 mm is a bounded test target; use wheels-off-ground testing. */
-    //int32_t drive_result = motion_move_forward(10000, 80); //LONGEST SPEED VARIABLE
-    //tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n", (long)drive_result);
 
     while (1)
     {
