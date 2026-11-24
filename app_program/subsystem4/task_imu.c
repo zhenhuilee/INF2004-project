@@ -490,17 +490,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
     tm_printf((UB*)"imu: BASELINE READY y=%d\n", flat_y);
 
-    /* Countdown is a testing cue, not a motor-start command.
-     * Keep the robot stationary until GO. */
-    tm_printf((UB*)"imu: TEST COUNTDOWN - keep robot still\n");
-    for (INT countdown = 5; countdown > 0; countdown--)
-    {
-        tm_printf((UB*)"imu: START IN %d\n", countdown);
-        tk_dly_tsk(1000);
-    }
-    tm_printf((UB*)"imu: GO - requesting forward movement\n");
-    tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n",
-              (long)motion_move_forward(10000, MOTION_DEFAULT_SPEED));
 
     while (1)
     {
