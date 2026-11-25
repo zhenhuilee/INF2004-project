@@ -67,3 +67,5 @@ Add a new row for every run. Never edit or delete old run records. `PARTIAL` mea
 | 2026-11-23 | S4-M05 | `9a7ce8f` | PARTIAL | `logs/2026-11-23_terrain_hump_pickup.txt` | `MOTION EVENT = TURNING`, `TURN RATE = 150 deg/s`; no subsequent clear of turning bit shown. |
 | 2026-11-23 | S4-M06 | `9a7ce8f` | PASS | `logs/2026-11-23_terrain_hump_pickup.txt` | After `PICKUP SAFETY ARMED`: `LIFTED tilt=38 y_change=8557`, motion status `0x07`, safety-stop request result `2`, `[S2] STOP RECEIVED`. |
 | 2026-11-23 | S4-M07 | `9a7ce8f` | PARTIAL | `logs/2026-11-23_terrain_hump_pickup.txt` | `[S2] BRAKE APPLIED` recorded; this serial log alone does not verify physical wheel stop or latency. |
+| 2026-11-24 | S4-M01 | `55ea766` | PASS | `logs/2026-11-24_terrain_pickup.txt`; https://youtu.be/QnVUMnxhetU | Full terrain sequence FLAT → UPHILL → PEAK → DOWNHILL → FLAT; estimated hump height 2 mm. |
+| 2026-11-24 | S4-M06 | `55ea766` | PASS | `logs/2026-11-24_terrain_pickup.txt`; https://youtu.be/QnVUMnxhetU | Pickup detected at tilt=71°, y_change=13216, motion status=0x07; safety-stop result=2; Buddy2 STOP RECEIVED and BRAKE APPLIED. |
