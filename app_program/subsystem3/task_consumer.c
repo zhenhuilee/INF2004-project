@@ -21,7 +21,7 @@
 /* Max transitions stored per barcode pass */
 #define BC_MAX_STEPS        32u
 /* Minimum edges required to treat a pass as a barcode rather than a single blip */
-#define BC_MIN_BARCODE_EDGES 4u
+#define BC_MIN_BARCODE_EDGES 5u
 
 /* Bypass tuning (verify steer sign on your chassis before full runs) */
 #define BYPASS_SPEED_MM_S     80
