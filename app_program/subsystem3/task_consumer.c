@@ -270,11 +270,11 @@ EXPORT void consumer_task(INT stacd, void *exinf)
         (void)motion_drive(base_speed, steer_term);
 
         /* --- LIVE IR MONITORING PRINT STATEMENT (ONLY ON BLACK DETECTION) --- */
-        if (!left || !center || !right) {
-            tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] L:%u C:%u R:%u | Steer:%ld\n",
-                       left, center, right, (long)steer_term);
-            tm_putstring(debug_buf);
-        }
+        // if (!left || !center || !right) {
+        //     tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] L:%u C:%u R:%u | Steer:%ld\n",
+        //                left, center, right, (long)steer_term);
+        //     tm_putstring(debug_buf);
+        // }
 
         /* 4. Check for a sample message with a 20 ms timeout */
         er = tk_rcv_mbx(mbx_samples, (T_MSG **)&msg, 20);

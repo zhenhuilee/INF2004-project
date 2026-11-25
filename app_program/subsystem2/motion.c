@@ -290,9 +290,9 @@ motion_handle_cmd (const motion_cmd_t *p_cmd, uint32_t *p_done_seq)
 		break;
 
 		case CMD_STOP:
-			tm_printf((UB*)"[S2] STOP RECEIVED\n");
+			// tm_printf((UB*)"[S2] STOP RECEIVED\n");
 			motion_finish();
-			tm_printf((UB*)"[S2] BRAKE APPLIED\n");
+			// tm_printf((UB*)"[S2] BRAKE APPLIED\n");
 			*p_done_seq = p_cmd->seq;
 		break;
 
