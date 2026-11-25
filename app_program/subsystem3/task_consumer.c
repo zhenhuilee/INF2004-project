@@ -174,6 +174,14 @@ EXPORT void consumer_task(INT stacd, void *exinf)
     while (1) {
         uint32_t now_us = S5_TIMER_TIMELR;
 
+        /* Buddy 4 pickup detection */
+        if (s4_is_pickup_detected())
+        {
+            (void)motion_stop();
+            tk_dly_tsk(25);
+            continue;
+        }
+
         /* 1. Check Subsystem 5 obstacle state or active bypass maneuver */
         if (subsystem5_is_blocked() || bypass_state != BYPASS_NONE) {
             if (!was_blocked && bypass_state == BYPASS_NONE) {

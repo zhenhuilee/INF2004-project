@@ -57,9 +57,29 @@ if (mbf_buddy1_cmd < E_OK) {
 
 EXPORT ER subsystem1_start(void)
 {
-	tid_led = app_start_task(led_task, S1_PRI_LED, 0, "led_task");
-	if (tid_led < E_OK) {
-		return tid_led;
-	}
-	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
+    ID tid;
+
+    tid_led = app_start_task(
+        led_task,
+        S1_PRI_LED,
+        0,
+        "led_task"
+    );
+
+    if (tid_led < E_OK) {
+        return tid_led;
+    }
+
+    tid = app_start_task(
+        buddy1_telemetry_task,
+        S1_PRI_LED + 1,
+        0,
+        "buddy1_telemetry_task"
+    );
+
+    if (tid < E_OK) {
+        return tid;
+    }
+
+    return tk_sta_cyc(cyc_led);
 }

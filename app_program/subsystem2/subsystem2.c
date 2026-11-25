@@ -16,11 +16,7 @@ s2_example_init (void)
     T_CMPF  cmpf = {0};
     ER      er;
 
-    /* 1. Initialize Subsystem 2 Motion Control (Motors, Encoders, Command Buffer) */
-    er = motion_init();
-    if (er < E_OK) {
-        return er;
-    }
+    /* Motion control is initialized once in subsystem2_init(). */
 
     /* 2. Semaphore: counter of free "slots" */
     csem.sematr  = TA_TFIFO;

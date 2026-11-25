@@ -23,6 +23,7 @@ IMPORT ID	tid_led;
 IMPORT ID	cyc_led;
 IMPORT void	led_task(INT stacd, void *exinf);
 IMPORT void	led_cyclic_handler(void *exinf);
+IMPORT void buddy1_telemetry_task(INT stacd, void *exinf);
 
 /* Buddy 1: MQTT command message buffer */
 #define S1_CMD_BUFFER_SIZE  64
