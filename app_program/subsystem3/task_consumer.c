@@ -20,6 +20,8 @@
 #define BC_PASS_END_US      120000u
 /* Max transitions stored per barcode pass */
 #define BC_MAX_STEPS        32u
+/* Minimum edges required to treat a pass as a barcode rather than a single blip */
+#define BC_MIN_BARCODE_EDGES 4u
 
 /* Bypass tuning (verify steer sign on your chassis before full runs) */
 #define BYPASS_SPEED_MM_S     80
@@ -40,6 +42,9 @@ typedef enum {
     BYPASS_TURN_BACK,
     BYPASS_REACQUIRE_LINE
 } bypass_state_t;
+
+/* 1 = barcode detected, 0 = not detected */
+static uint8_t barcode_detected = 0u;
 
 static void bc_track_pass(unsigned int right_val)
 {
@@ -111,10 +116,22 @@ static void bc_track_pass(unsigned int right_val)
             uint32_t end_white_us = (now_us - last_edge_us) - BC_PASS_END_US;
             uint32_t total_pass_ms = (last_activity_us - pass_start_us) / 1000u;
 
-            tm_printf("[BC-PASS] END: dur=%lu ms | edges=%u | bits=0x%lx\n",
+            if (edge_cnt >= BC_MIN_BARCODE_EDGES)
+            {
+                barcode_detected = 1u;
+                tm_printf("barcode found (barcode_detected=%u)\n", (unsigned int)barcode_detected);
+            }
+            else
+            {
+                barcode_detected = 0u;
+                tm_printf("barcode_detected=%u\n", (unsigned int)barcode_detected);
+            }
+
+            tm_printf("[BC-PASS] END: dur=%lu ms | edges=%u | bits=0x%lx | detected=%u\n",
                       (unsigned long)total_pass_ms,
                       (unsigned int)edge_cnt,
-                      (unsigned long)bits_seen);
+                      (unsigned long)bits_seen,
+                      (unsigned int)barcode_detected);
 
             for (uint8_t i = 0u; i < step_cnt; i++)
             {
@@ -283,20 +300,33 @@ EXPORT void consumer_task(INT stacd, void *exinf)
 
         if (left && center && ((now_ms - last_junc_ms) >= 600u || last_junc_ms == 0u)) {
             last_junc_ms = now_ms;
-            tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | TurnLeft90\n",
-                       left, center, right);
-            tm_putstring(debug_buf);
 
-            /* Drive forward a few cm so the robot pivots right on the junction */
-            int32_t fwd_seq = motion_move_forward(90, base_speed);
-            if (fwd_seq > 0) {
-                (void)motion_wait_done(fwd_seq, 2000);
-            }
+            if (barcode_detected) {
+                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | Barcode=1 -> TurnLeft90\n",
+                           left, center, right);
+                tm_putstring(debug_buf);
 
-            int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
-            if (turn_seq > 0) {
-                (void)motion_wait_done(turn_seq, 3000);
-                last_junc_ms = S5_TIMER_TIMELR / 1000u;
+                /* Drive forward a few cm so the robot pivots right on the junction */
+                int32_t fwd_seq = motion_move_forward(90, base_speed);
+                if (fwd_seq > 0) {
+                    (void)motion_wait_done(fwd_seq, 2000);
+                }
+
+                int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
+                if (turn_seq > 0) {
+                    (void)motion_wait_done(turn_seq, 3000);
+                    last_junc_ms = S5_TIMER_TIMELR / 1000u;
+                }
+
+                /* Consume detection so it only triggers once */
+                barcode_detected = 0u;
+            } else {
+                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | Barcode=0 -> Skip Left Turn\n",
+                           left, center, right);
+                tm_putstring(debug_buf);
+
+                /* Continue straight through the junction when no barcode was detected */
+                (void)motion_drive(base_speed, 0);
             }
         } else {
             if (left && !center) {
