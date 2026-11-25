@@ -1,7 +1,3 @@
-/*
- *	task_consumer.c
- */
-
 #include "subsystem3.h"
 #include "../subsystem2/subsystem2.h"   
 #include "../subsystem4/subsystem4.h"   
@@ -13,7 +9,7 @@
 
 #define S5_TIMER_TIMELR (*(volatile const uint32_t *)0x40054028u)
 
-#define BC_MIN_EDGE_US       5000u
+#define BC_MIN_EDGE_US       2500u
 #define BC_PASS_END_US       120000u
 #define BC_MAX_STEPS         64u
 #define BC_MIN_BARCODE_EDGES 9u
@@ -26,17 +22,17 @@
 #define BYPASS_MIN_DRIVE_MS   450u
 #define BYPASS_MAX_DRIVE_MS   3200u
 #define BYPASS_MAX_REACQ_MS   3500u
-#define BYPASS_MIN_DWELL_MS   1500u
+#define BYPASS_MIN_DWELL_MS   3500u
 
 typedef enum {
     BYPASS_NONE = 0,
     BYPASS_WAITING_SWEEP,
+    BYPASS_BACK_UP,       
     BYPASS_TURN_OUT,
     BYPASS_DRIVE_PAST,
     BYPASS_TURN_BACK,
     BYPASS_REACQUIRE_LINE
 } bypass_state_t;
-
 typedef enum {
     BC_ACT_NONE = 0,
     BC_ACT_FORWARD,
@@ -44,6 +40,21 @@ typedef enum {
     BC_ACT_LEFT,
     BC_ACT_RIGHT
 } bc_action_t;
+
+typedef struct {
+    char     letter;
+    uint16_t code9;
+} code39_alpha_t;
+
+static const code39_alpha_t CODE39_ALPHA[26] = {
+    { 'A', 0x109u }, { 'B', 0x049u }, { 'C', 0x148u }, { 'D', 0x019u },
+    { 'E', 0x118u }, { 'F', 0x058u }, { 'G', 0x00Du }, { 'H', 0x10Cu },
+    { 'I', 0x04Cu }, { 'J', 0x01Cu }, { 'K', 0x103u }, { 'L', 0x043u },
+    { 'M', 0x142u }, { 'N', 0x013u }, { 'O', 0x112u }, { 'P', 0x052u },
+    { 'Q', 0x007u }, { 'R', 0x106u }, { 'S', 0x046u }, { 'T', 0x016u },
+    { 'U', 0x181u }, { 'V', 0x0C1u }, { 'W', 0x1C0u }, { 'X', 0x091u },
+    { 'Y', 0x190u }, { 'Z', 0x0D0u }
+};
 
 static uint8_t barcode_detected = 0u;
 static uint8_t bc_pass_array[BC_MAX_STEPS] = {0};
@@ -134,36 +145,73 @@ void s3_apply_mqtt_mapping(const char *payload)
     }
 }
 
-static char bc_detect_letter_a(const uint32_t *durs, uint8_t count)
+// Ratio-based Code 39 decoder: resilient to line-following jitters and speed variations
+static char bc_decode_code39(const uint32_t *durs, uint8_t count)
 {
-    uint32_t valid_edges = 0u;
-
-    if (count < BC_MIN_BARCODE_EDGES) {
+    if (count < 18u) {
         return '\0';
     }
 
-    for (uint8_t i = 0u; i < count; i++) {
-        if (durs[i] >= BC_MIN_EDGE_US) {
-            valid_edges++;
-        }
-    }
+    // Slide across edge windows to locate the data character block
+    for (uint8_t start_idx = 0u; start_idx + 9u <= count; start_idx++) {
+        uint32_t work[9];
+        bool valid = true;
 
-    if (valid_edges >= BC_MIN_BARCODE_EDGES) {
-        return 'A';
+        for (uint8_t i = 0u; i < 9u; i++) {
+            work[i] = durs[start_idx + i];
+            if (work[i] < BC_MIN_EDGE_US) {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) continue;
+
+        // Find the shortest edge in this window to establish the baseline "narrow" stripe width
+        uint32_t min_dur = work[0];
+        for (uint8_t i = 1u; i < 9u; i++) {
+            if (work[i] < min_dur) {
+                min_dur = work[i];
+            }
+        }
+
+        // Code 39 wide-to-narrow ratio is nominally 2.0 to 3.0. 
+        // Anything >= 1.6 times the minimum duration is classified as Wide (1), 
+        // else Narrow (0). This ratio method completely cancels out speed jitters.
+        uint16_t computed_code = 0u;
+        for (uint8_t i = 0u; i < 9u; i++) {
+            computed_code <<= 1;
+            if (work[i] >= (min_dur * 16u / 10u)) {
+                computed_code |= 1u;
+            }
+        }
+
+        // Check if it matches 'A' (0x109u)
+        if (computed_code == 0x109u) {
+            return 'A';
+        }
+
+        // Match against any other A-Z lookup entry
+        for (uint8_t i = 0u; i < 26u; i++) {
+            if (CODE39_ALPHA[i].code9 == computed_code) {
+                return CODE39_ALPHA[i].letter;
+            }
+        }
     }
 
     return '\0';
 }
 
-static void bc_print_only_barcode(char ch)
+static void bc_print_only_barcode(char ch, const uint32_t *durs, uint8_t count)
 {
-    if (ch == 'A') {
-        tm_printf("%c\n", ch);
+    if (ch >= 'A' && ch <= 'Z') {
+        tm_printf("Decoded Character: %c\n", ch);
+    } else {
+        tm_printf("Decoded Character: Unknown / Unmatched\n");
     }
 
-    tm_printf("[");
-    for (uint8_t i = 0u; i < bc_pass_len; i++) {
-        tm_printf("%u%s", (unsigned int)bc_pass_array[i], (i + 1u < bc_pass_len) ? "," : "");
+    tm_printf("Stripe Durations (us): [");
+    for (uint8_t i = 0u; i < count; i++) {
+        tm_printf("%u%s", (unsigned int)durs[i], (i + 1u < count) ? "," : "");
     }
     tm_printf("]\n");
 }
@@ -232,13 +280,13 @@ static void bc_track_pass(unsigned int right_val)
                     bc_pass_array[i] = step_state[i];
                 }
 
-                char decoded = bc_detect_letter_a(step_dur_us, step_cnt);
-                if (decoded == 'A')
+                char decoded = bc_decode_code39(step_dur_us, step_cnt);
+                if (decoded >= 'A' && decoded <= 'Z')
                 {
-                    stored_barcode_char = 'A';
+                    stored_barcode_char = decoded;
                 }
-
-                bc_print_only_barcode(decoded);
+                
+                bc_print_only_barcode(decoded, step_dur_us, step_cnt);
             }
             else
             {
@@ -282,50 +330,63 @@ EXPORT void consumer_task(INT stacd, void *exinf)
         if (subsystem5_is_blocked() || bypass_state != BYPASS_NONE) {
             if (!was_blocked && bypass_state == BYPASS_NONE) {
                 (void)motion_stop();
-                tm_putstring((const UB*)"[S3] Obstacle detected. Stopping longer & measuring width...\n");
+                tm_putstring((const UB*)"[S3] Obstacle detected. Scanning and backing up...\n");
                 was_blocked = true;
                 got_width = false;
                 bypass_state = BYPASS_WAITING_SWEEP;
                 step_start_us = now_us;
             }
 
+            // Step 1: Scan / Dwell
             if (bypass_state == BYPASS_WAITING_SWEEP) {
                 (void)motion_stop();
 
-                if (!got_width && subsystem5_get_obstacle_info(&obs_info)) {
-                    got_width = true;
+                S5_OBSTACLE_INFO sample_obs;
+                if (subsystem5_get_obstacle_info(&sample_obs)) {
+                    if (sample_obs.est_width_cm > 0.0f) {
+                        obs_info = sample_obs;
+                        got_width = true;
+                    }
                 }
 
-                if (got_width && (((now_us - step_start_us) / 1000u) >= BYPASS_MIN_DWELL_MS)) {
+                if (((now_us - step_start_us) / 1000u) >= BYPASS_MIN_DWELL_MS) {
                     float width_cm = (obs_info.est_width_cm > 0.0f) ? obs_info.est_width_cm : obs_info.bypass_offset_cm;
                     uint32_t width_mm = (width_cm > 0.0f) ? (uint32_t)(width_cm * 10.0f) : 0u;
                     uint32_t offset_mm = (uint32_t)(obs_info.bypass_offset_cm * 10.0f);
                     uint32_t clearance_mm = ((width_mm > offset_mm) ? width_mm : offset_mm) + BYPASS_EXTRA_BERTH_MM;
 
                     drive_past_ms = (clearance_mm * 1000u) / (uint32_t)BYPASS_SPEED_MM_S;
-                    if (drive_past_ms < BYPASS_MIN_DRIVE_MS) {
-                        drive_past_ms = BYPASS_MIN_DRIVE_MS;
+                    if (drive_past_ms < 800u) {
+                        drive_past_ms = 800u;
                     }
                     if (drive_past_ms > BYPASS_MAX_DRIVE_MS) {
                         drive_past_ms = BYPASS_MAX_DRIVE_MS;
                     }
 
-                    tm_printf("[S3] Width~%d cm (+%u mm berth) -> straight=%lu ms, turn=%lu ms\n",
-                              (int)obs_info.est_width_cm,
-                              (unsigned int)BYPASS_EXTRA_BERTH_MM,
-                              (unsigned long)drive_past_ms,
-                              (unsigned long)BYPASS_TURN_MS);
-
-                    bypass_state = BYPASS_TURN_OUT;
+                    // Transition to backing up before turning out
+                    bypass_state = BYPASS_BACK_UP;
                     step_start_us = now_us;
                 }
                 tk_dly_tsk(25);
                 continue;
             }
 
+            // Step 2: Back up slightly to clear the object safely
+            if (bypass_state == BYPASS_BACK_UP) {
+                // Negative speed (-60) moves the robot backward
+                (void)motion_drive(-60, 0); 
+                if (((now_us - step_start_us) / 1000u) >= 500u) { // Back up for 500 ms
+                    bypass_state = BYPASS_TURN_OUT;
+                    step_start_us = now_us;
+                }
+                tk_dly_tsk(20);
+                continue;
+            }
+
+            // Step 3: Turn Right sharply to step out of the obstacle path
             if (bypass_state == BYPASS_TURN_OUT) {
-                (void)motion_drive(BYPASS_SPEED_MM_S, BYPASS_STEER_OUT);
-                if (((now_us - step_start_us) / 1000u) >= BYPASS_TURN_MS) {
+                (void)motion_drive(BYPASS_SPEED_MM_S, 50); 
+                if (((now_us - step_start_us) / 1000u) >= 700u) { 
                     bypass_state = BYPASS_DRIVE_PAST;
                     step_start_us = now_us;
                 }
@@ -333,6 +394,7 @@ EXPORT void consumer_task(INT stacd, void *exinf)
                 continue;
             }
 
+            // Step 4: Drive Straight parallel to the obstacle
             if (bypass_state == BYPASS_DRIVE_PAST) {
                 (void)motion_drive(BYPASS_SPEED_MM_S, 0);
                 if (((now_us - step_start_us) / 1000u) >= drive_past_ms) {
@@ -343,17 +405,18 @@ EXPORT void consumer_task(INT stacd, void *exinf)
                 continue;
             }
 
+            // Step 5: Turn Left back toward the track line
             if (bypass_state == BYPASS_TURN_BACK) {
-                (void)motion_drive(BYPASS_SPEED_MM_S, BYPASS_STEER_BACK);
-                if (((now_us - step_start_us) / 1000u) >= BYPASS_TURN_MS) {
+                (void)motion_drive(BYPASS_SPEED_MM_S, -50); 
+                if (((now_us - step_start_us) / 1000u) >= 700u) {
                     bypass_state = BYPASS_REACQUIRE_LINE;
                     step_start_us = now_us;
-                    tm_putstring((const UB*)"[S3] Reacquiring line (curving left)...\n");
                 }
                 tk_dly_tsk(20);
                 continue;
             }
 
+            // Step 6: Actively scan IR sensors until the track line is re-acquired
             if (bypass_state == BYPASS_REACQUIRE_LINE) {
                 left   = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_LEFT) & 1;
                 center = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_CENTER) & 1;
@@ -367,20 +430,16 @@ EXPORT void consumer_task(INT stacd, void *exinf)
                     was_blocked = false;
                     got_width = false;
                     bypass_state = BYPASS_NONE;
-                    tm_printf("[S3] Bypass %s (L:%u C:%u R:%u). Resuming line tracking.\n",
-                              found_line ? "rejoined line" : "timed out",
-                              left, center, right);
                     continue;
                 }
 
-                (void)motion_drive(BYPASS_SPEED_MM_S, 20);
+                (void)motion_drive(BYPASS_SPEED_MM_S, -20);
                 tk_dly_tsk(20);
                 continue;
             }
         }
 
         if (was_blocked) {
-            tm_putstring((const UB*)"[S3] Path clear. Resuming movement.\n");
             was_blocked = false;
             got_width = false;
         }
@@ -399,20 +458,49 @@ EXPORT void consumer_task(INT stacd, void *exinf)
             last_junc_ms = now_ms;
 
             if (stored_barcode_char == 'A') {
-                int32_t fwd_seq = motion_move_forward(90, base_speed);
-                if (fwd_seq > 0) {
-                    (void)motion_wait_done(fwd_seq, 2000);
-                }
+                bc_action_t action = char_action_map[0];
 
-                int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
-                if (turn_seq > 0) {
-                    (void)motion_wait_done(turn_seq, 3000);
-                    last_junc_ms = S5_TIMER_TIMELR / 1000u;
+                switch (action) {
+                    case BC_ACT_FORWARD:
+                        {
+                            int32_t fwd_seq = motion_move_forward(90, base_speed);
+                            if (fwd_seq > 0) { (void)motion_wait_done(fwd_seq, 2000); }
+                        }
+                        break;
+                    case BC_ACT_LEFT:
+                        {
+                            int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 3000); }
+                        }
+                        break;
+                    case BC_ACT_RIGHT:
+                        {
+                            int32_t turn_seq = motion_turn_right(90, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 3000); }
+                        }
+                        break;
+                    case BC_ACT_U_TURN:
+                        {
+                            int32_t turn_seq = motion_turn_left(180, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 4000); }
+                        }
+                        break;
+                    case BC_ACT_NONE:
+                    default:
+                        {
+                            int32_t fwd_seq = motion_move_forward(90, base_speed);
+                            if (fwd_seq > 0) { (void)motion_wait_done(fwd_seq, 2000); }
+
+                            int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 3000); }
+                        }
+                        break;
                 }
 
                 stored_barcode_char = '\0';
             } else {
                 (void)motion_drive(base_speed, 0);
+                stored_barcode_char = '\0';
             }
         } else {
             if (left && !center) {
