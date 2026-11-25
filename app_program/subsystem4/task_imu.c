@@ -51,7 +51,6 @@ static INT acceleration_count;
 static INT stationary_count;
 
 static BOOL lifted_active;
-static BOOL safety_stop_latched;
 static INT lift_count;
 
 static INT previous_heading;
@@ -209,7 +208,6 @@ static void update_motion_classifier(IMU_DATA *current)
 static void lift_detector_reset(void)
 {
     lifted_active = FALSE;
-    safety_stop_latched = FALSE;
     lift_count = 0;
     update_motion_status(S4_MOTION_LIFT_BIT, FALSE);
 }
@@ -220,7 +218,7 @@ static void update_lift_detector(IMU_DATA *current, INT flat_y)
     INT y_change;
     int32_t stop_result;
 
-    if (safety_stop_latched)
+    if (lifted_active)
         return;
 
     tilt_deg = abs_int(approximate_angle_deg(current->y, current->z));
@@ -234,7 +232,6 @@ static void update_lift_detector(IMU_DATA *current, INT flat_y)
         if (lift_count >= S4_LIFT_CONFIRM_SAMPLES)
         {
             lifted_active = TRUE;
-            safety_stop_latched = TRUE;
             lift_count = 0;
 
             update_motion_status(S4_MOTION_LIFT_BIT, TRUE);
@@ -245,7 +242,7 @@ static void update_lift_detector(IMU_DATA *current, INT flat_y)
             );
 
             stop_result = motion_stop();
-            tm_printf((UB*)"imu: SAFETY STOP REQUEST result=%ld\n",
+            tm_printf((UB*)"imu: PICKUP STOP REQUEST result=%ld\n",
                       (long)stop_result);
         }
     }
@@ -388,7 +385,13 @@ EXPORT INT s4_get_highest_hump_height_mm(void)
 
 EXPORT BOOL s4_is_safety_stop_latched(void)
 {
-    return safety_stop_latched;
+    /* Compatibility: report whether pickup has been detected. */
+    return lifted_active;
+}
+
+EXPORT BOOL s4_is_pickup_detected(void)
+{
+    return lifted_active;
 }
 
 /*
@@ -490,17 +493,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
     tm_printf((UB*)"imu: BASELINE READY y=%d\n", flat_y);
 
-    /* Isolated Buddy 4 test: start only after calibration and countdown. */
-    for (INT countdown = 5; countdown > 0; countdown--)
-    {
-        tm_printf((UB*)"imu: START IN %d\n", countdown);
-        tk_dly_tsk(1000);
-    }
-    tm_printf((UB*)"imu: GO - requesting forward movement\n");
-    /* Distance-based command avoids motion_drive()'s 500 ms watchdog.
-     * 1000 mm is a bounded test target; use wheels-off-ground testing. */
-    int32_t drive_result = motion_move_forward(1000, 80);
-    tm_printf((UB*)"imu: FORWARD REQUEST result=%ld\n", (long)drive_result);
 
     while (1)
     {
@@ -541,12 +533,6 @@ EXPORT void imu_task(INT stacd, void *exinf)
 
         if (lift_startup_grace_samples == 0)
             update_lift_detector(&imu_data, flat_y);
-
-        if (safety_stop_latched)
-        {
-            tk_dly_tsk(S4_RUNTIME_SAMPLE_DELAY_MS);
-            continue;
-        }
 
         update_motion_classifier(&imu_data);
 

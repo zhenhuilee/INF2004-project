@@ -61,6 +61,7 @@ IMPORT S4_IMU_STATUS s4_get_imu_status(void);
 IMPORT INT s4_get_current_hump_height_mm(void);
 IMPORT INT s4_get_highest_hump_height_mm(void);
 IMPORT BOOL s4_is_safety_stop_latched(void);
+IMPORT BOOL s4_is_pickup_detected(void);
 
 /* Provisional compact 2-byte transport representation. */
 #define S4_COMPACT_STATUS_SIZE  2
