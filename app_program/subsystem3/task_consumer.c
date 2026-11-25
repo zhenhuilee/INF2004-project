@@ -1,6 +1,6 @@
 /*
-- task_consumer.c
-- Subsystem 3 -- Consumer task with barcode pass logger and obstacle bypass.
+ *	task_consumer.c
+ *	Subsystem 3 -- Consumer task with barcode pass logger and obstacle bypass.
  */
 
 #include "subsystem3.h"
@@ -20,13 +20,19 @@
 #define BC_PASS_END_US      120000u
 /* Max transitions stored per barcode pass */
 #define BC_MAX_STEPS        32u
+/* Minimum edges required to treat a pass as a barcode rather than a single blip */
+#define BC_MIN_BARCODE_EDGES 4u
 
 /* Bypass tuning (verify steer sign on your chassis before full runs) */
-#define BYPASS_SPEED_MM_S   80
-#define BYPASS_STEER_OUT    (-45)
-#define BYPASS_STEER_BACK   (45)
-#define BYPASS_TURN_MS      550u
-#define BYPASS_MAX_REACQ_MS 3500u
+#define BYPASS_SPEED_MM_S     80
+#define BYPASS_STEER_OUT      (-45)
+#define BYPASS_STEER_BACK     (45)
+#define BYPASS_TURN_MS        550u
+#define BYPASS_EXTRA_BERTH_MM 80u     /* Extra width margin for a slightly wider berth */
+#define BYPASS_MIN_DRIVE_MS   450u
+#define BYPASS_MAX_DRIVE_MS   3200u
+#define BYPASS_MAX_REACQ_MS   3500u
+#define BYPASS_MIN_DWELL_MS   1500u   /* Minimum stop/dwell time while measuring width */
 
 typedef enum {
     BYPASS_NONE = 0,
@@ -36,6 +42,9 @@ typedef enum {
     BYPASS_TURN_BACK,
     BYPASS_REACQUIRE_LINE
 } bypass_state_t;
+
+/* 1 = barcode detected, 0 = not detected */
+static uint8_t barcode_detected = 0u;
 
 static void bc_track_pass(unsigned int right_val)
 {
@@ -107,10 +116,22 @@ static void bc_track_pass(unsigned int right_val)
             uint32_t end_white_us = (now_us - last_edge_us) - BC_PASS_END_US;
             uint32_t total_pass_ms = (last_activity_us - pass_start_us) / 1000u;
 
-            tm_printf("[BC-PASS] END: dur=%lu ms | edges=%u | bits=0x%lx\n",
+            if (edge_cnt >= BC_MIN_BARCODE_EDGES)
+            {
+                barcode_detected = 1u;
+                tm_printf("barcode found (barcode_detected=%u)\n", (unsigned int)barcode_detected);
+            }
+            else
+            {
+                barcode_detected = 0u;
+                tm_printf("barcode_detected=%u\n", (unsigned int)barcode_detected);
+            }
+
+            tm_printf("[BC-PASS] END: dur=%lu ms | edges=%u | bits=0x%lx | detected=%u\n",
                       (unsigned long)total_pass_ms,
                       (unsigned int)edge_cnt,
-                      (unsigned long)bits_seen);
+                      (unsigned long)bits_seen,
+                      (unsigned int)barcode_detected);
 
             for (uint8_t i = 0u; i < step_cnt; i++)
             {
@@ -141,9 +162,12 @@ EXPORT void consumer_task(INT stacd, void *exinf)
     
     unsigned int left, center, right;
     bool was_blocked = false;
+    bool got_width = false;
+    S5_OBSTACLE_INFO obs_info = {0};
     bypass_state_t bypass_state = BYPASS_NONE;
     uint32_t step_start_us = 0u;
     uint32_t drive_past_ms = 500u;
+    uint32_t last_junc_ms = 0u;
 
 	(void)stacd; (void)exinf;
 
@@ -162,29 +186,40 @@ EXPORT void consumer_task(INT stacd, void *exinf)
         if (subsystem5_is_blocked() || bypass_state != BYPASS_NONE) {
             if (!was_blocked && bypass_state == BYPASS_NONE) {
                 (void)motion_stop();
-                tm_putstring((const UB*)"[S3] Obstacle detected. Stopping to measure width...\n");
+                tm_putstring((const UB*)"[S3] Obstacle detected. Stopping longer & measuring width...\n");
                 was_blocked = true;
+                got_width = false;
                 bypass_state = BYPASS_WAITING_SWEEP;
                 step_start_us = now_us;
             }
 
             if (bypass_state == BYPASS_WAITING_SWEEP) {
-                S5_OBSTACLE_INFO info;
                 (void)motion_stop();
 
-                if (subsystem5_get_obstacle_info(&info)) {
-                    uint32_t offset_mm = (uint32_t)(info.bypass_offset_cm * 10.0f);
-                    drive_past_ms = (offset_mm * 1000u) / (uint32_t)BYPASS_SPEED_MM_S;
-                    if (drive_past_ms < 400u) {
-                        drive_past_ms = 400u;
+                if (!got_width && subsystem5_get_obstacle_info(&obs_info)) {
+                    got_width = true;
+                }
+
+                /* Stay stopped for at least BYPASS_MIN_DWELL_MS and until obstacle width is read */
+                if (got_width && (((now_us - step_start_us) / 1000u) >= BYPASS_MIN_DWELL_MS)) {
+                    float width_cm = (obs_info.est_width_cm > 0.0f) ? obs_info.est_width_cm : obs_info.bypass_offset_cm;
+                    uint32_t width_mm = (width_cm > 0.0f) ? (uint32_t)(width_cm * 10.0f) : 0u;
+                    uint32_t offset_mm = (uint32_t)(obs_info.bypass_offset_cm * 10.0f);
+                    uint32_t clearance_mm = ((width_mm > offset_mm) ? width_mm : offset_mm) + BYPASS_EXTRA_BERTH_MM;
+
+                    drive_past_ms = (clearance_mm * 1000u) / (uint32_t)BYPASS_SPEED_MM_S;
+                    if (drive_past_ms < BYPASS_MIN_DRIVE_MS) {
+                        drive_past_ms = BYPASS_MIN_DRIVE_MS;
                     }
-                    if (drive_past_ms > 3000u) {
-                        drive_past_ms = 3000u;
+                    if (drive_past_ms > BYPASS_MAX_DRIVE_MS) {
+                        drive_past_ms = BYPASS_MAX_DRIVE_MS;
                     }
 
-                    tm_printf("[S3] Bypassing ~%d cm width (drive_past=%lu ms)\n",
-                              (int)info.est_width_cm,
-                              (unsigned long)drive_past_ms);
+                    tm_printf("[S3] Width~%d cm (+%u mm berth) -> straight=%lu ms, turn=%lu ms\n",
+                              (int)obs_info.est_width_cm,
+                              (unsigned int)BYPASS_EXTRA_BERTH_MM,
+                              (unsigned long)drive_past_ms,
+                              (unsigned long)BYPASS_TURN_MS);
 
                     bypass_state = BYPASS_TURN_OUT;
                     step_start_us = now_us;
@@ -218,6 +253,7 @@ EXPORT void consumer_task(INT stacd, void *exinf)
                 if (((now_us - step_start_us) / 1000u) >= BYPASS_TURN_MS) {
                     bypass_state = BYPASS_REACQUIRE_LINE;
                     step_start_us = now_us;
+                    tm_putstring((const UB*)"[S3] Reacquiring line (curving left)...\n");
                 }
                 tk_dly_tsk(20);
                 continue;
@@ -226,25 +262,36 @@ EXPORT void consumer_task(INT stacd, void *exinf)
             if (bypass_state == BYPASS_REACQUIRE_LINE) {
                 left   = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_LEFT) & 1;
                 center = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_CENTER) & 1;
+                right  = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_RIGHT) & 1;
 
-                /* Black = 0: rejoin line tracking once left or center sees black */
-                if (!left || !center || ((now_us - step_start_us) / 1000u) >= BYPASS_MAX_REACQ_MS) {
+                bool found_line = (!left || !center || !right);
+                bool timed_out  = (((now_us - step_start_us) / 1000u) >= BYPASS_MAX_REACQ_MS);
+
+                /* Black = 0: rejoin line tracking once any IR sensor sees black, or on timeout */
+                if (found_line || timed_out) {
                     subsystem5_clear_obstacle_info();
                     was_blocked = false;
+                    got_width = false;
                     bypass_state = BYPASS_NONE;
-                    tm_putstring((const UB*)"[S3] Bypass complete. Resuming line tracking.\n");
+                    tm_printf("[S3] Bypass %s (L:%u C:%u R:%u). Resuming line tracking.\n",
+                              found_line ? "rejoined line" : "timed out",
+                              left, center, right);
                     continue;
                 }
 
-                (void)motion_drive(BYPASS_SPEED_MM_S, 0);
+                /* Gentle left curve toward the line instead of driving straight parallel */
+                (void)motion_drive(BYPASS_SPEED_MM_S, 20);
                 tk_dly_tsk(20);
                 continue;
             }
+
+
         }
 
         if (was_blocked) {
             tm_putstring((const UB*)"[S3] Path clear. Resuming movement.\n");
             was_blocked = false;
+            got_width = false;
         }
 
         /* 2. Read the 3 IR sensors */
@@ -256,25 +303,58 @@ EXPORT void consumer_task(INT stacd, void *exinf)
 
         /* 3. Line Tracking & Motor Control via Subsystem 2 API (slower speed) */
         int32_t base_speed = 80;   /* mm/s forward speed */
-        int32_t steer_term = 0;    
+        int32_t steer_term = 0;
+        uint32_t now_ms = now_us / 1000u;
 
-        if (left && !center) {
-            steer_term = -30;
-        } else if (!left && center) {
-            steer_term = 30;
+        if (left && center && ((now_ms - last_junc_ms) >= 600u || last_junc_ms == 0u)) {
+            last_junc_ms = now_ms;
+
+            if (barcode_detected) {
+                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | Barcode=1 -> TurnLeft90\n",
+                           left, center, right);
+                tm_putstring(debug_buf);
+
+                /* Drive forward a few cm so the robot pivots right on the junction */
+                int32_t fwd_seq = motion_move_forward(90, base_speed);
+                if (fwd_seq > 0) {
+                    (void)motion_wait_done(fwd_seq, 2000);
+                }
+
+                int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
+                if (turn_seq > 0) {
+                    (void)motion_wait_done(turn_seq, 3000);
+                    last_junc_ms = S5_TIMER_TIMELR / 1000u;
+                }
+
+                /* Consume detection so it only triggers once */
+                barcode_detected = 0u;
+            } else {
+                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | Barcode=0 -> Skip Left Turn\n",
+                           left, center, right);
+                tm_putstring(debug_buf);
+
+                /* Continue straight through the junction when no barcode was detected */
+                (void)motion_drive(base_speed, 0);
+            }
         } else {
-            steer_term = 0;
+            if (left && !center) {
+                steer_term = -30; //right
+            } else if (!left && center) {
+                steer_term = 30;  //left
+            } else {
+                steer_term = 0;
+            }
+
+            /* Send continuous drive command safely without constant overrides */
+            (void)motion_drive(base_speed, steer_term);
+
+            /* --- LIVE IR MONITORING PRINT STATEMENT (ONLY ON BLACK DETECTION) --- */
+            if (!left || !center || !right) {
+                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] L:%u C:%u R:%u | Steer:%ld\n",
+                           left, center, right, (long)steer_term);
+                tm_putstring(debug_buf);
+            }
         }
-
-        /* Send continuous drive command safely without constant overrides */
-        (void)motion_drive(base_speed, steer_term);
-
-        /* --- LIVE IR MONITORING PRINT STATEMENT (ONLY ON BLACK DETECTION) --- */
-        // if (!left || !center || !right) {
-        //     tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] L:%u C:%u R:%u | Steer:%ld\n",
-        //                left, center, right, (long)steer_term);
-        //     tm_putstring(debug_buf);
-        // }
 
         /* 4. Check for a sample message with a 20 ms timeout */
         er = tk_rcv_mbx(mbx_samples, (T_MSG **)&msg, 20);
