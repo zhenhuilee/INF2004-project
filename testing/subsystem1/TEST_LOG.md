@@ -1,7 +1,7 @@
 # Subsystem 1 — Test Log
 
 *Subsystem:* Wi-Fi / MQTT Communication & Telemetry  
- **Student ID:** <student ID>
+*Student ID:* 2503784
 *Code:* app_program/subsystem1/
 
 Subsystem 1 provides the communication layer for the robot. Testing covers the Buddy 1 command parser and message buffer, Wi-Fi/MQTT connectivity, MQTT telemetry transmission, heartbeat communication, and telemetry integration with the other subsystems.
