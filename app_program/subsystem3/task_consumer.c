@@ -407,7 +407,7 @@ EXPORT void consumer_task(INT stacd, void *exinf)
 
             // Step 5: Turn Left back toward the track line
             if (bypass_state == BYPASS_TURN_BACK) {
-                (void)motion_drive(BYPASS_SPEED_MM_S, -50); 
+                (void)motion_drive(BYPASS_SPEED_MM_S, -80); 
                 if (((now_us - step_start_us) / 1000u) >= 700u) {
                     bypass_state = BYPASS_REACQUIRE_LINE;
                     step_start_us = now_us;
