@@ -450,7 +450,7 @@ EXPORT void consumer_task(INT stacd, void *exinf)
 
         bc_track_pass(right);
 
-        int32_t base_speed = 80;
+        int32_t base_speed = 60;
         int32_t steer_term = 0;
         uint32_t now_ms = now_us / 1000u;
 
@@ -504,9 +504,9 @@ EXPORT void consumer_task(INT stacd, void *exinf)
             }
         } else {
             if (left && !center) {
-                steer_term = -30;
+                steer_term = -40;
             } else if (!left && center) {
-                steer_term = 30;
+                steer_term = 40;
             } else {
                 steer_term = 0;
             }
