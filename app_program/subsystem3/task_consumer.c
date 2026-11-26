@@ -1,59 +1,227 @@
-/*
- *	task_consumer.c
- *	Subsystem 3 -- Consumer task with barcode pass logger and obstacle bypass.
- */
-
 #include "subsystem3.h"
 #include "../subsystem2/subsystem2.h"   
 #include "../subsystem4/subsystem4.h"   
-#include "../subsystem5/subsystem5.h"   /* Subsystem 5 API */
+#include "../subsystem5/subsystem5.h"   
 #include "sys/sysdef.h"
 #include "../subsystem2/motion.h"
 #include <stdbool.h>
+#include <stdint.h>
 
-/* RP2040 1 MHz free-running raw lower timer word */
 #define S5_TIMER_TIMELR (*(volatile const uint32_t *)0x40054028u)
 
-/* Minimum edge duration to count as real (filters out tiny noise glitches) */
-#define BC_MIN_EDGE_US      5000u
-/* Quiet time on white (1) that marks the end of a barcode pass */
-#define BC_PASS_END_US      120000u
-/* Max transitions stored per barcode pass */
-#define BC_MAX_STEPS        32u
-/* Minimum edges required to treat a pass as a barcode rather than a single blip */
-#define BC_MIN_BARCODE_EDGES 5u
+#define BC_MIN_EDGE_US       2500u
+#define BC_PASS_END_US       120000u
+#define BC_MAX_STEPS         64u
+#define BC_MIN_BARCODE_EDGES 9u
 
-/* Bypass tuning (verify steer sign on your chassis before full runs) */
 #define BYPASS_SPEED_MM_S     80
 #define BYPASS_STEER_OUT      (-45)
 #define BYPASS_STEER_BACK     (45)
 #define BYPASS_TURN_MS        550u
-#define BYPASS_EXTRA_BERTH_MM 80u     /* Extra width margin for a slightly wider berth */
+#define BYPASS_EXTRA_BERTH_MM 80u
 #define BYPASS_MIN_DRIVE_MS   450u
 #define BYPASS_MAX_DRIVE_MS   3200u
 #define BYPASS_MAX_REACQ_MS   3500u
-#define BYPASS_MIN_DWELL_MS   1500u   /* Minimum stop/dwell time while measuring width */
+#define BYPASS_MIN_DWELL_MS   3500u
 
 typedef enum {
     BYPASS_NONE = 0,
     BYPASS_WAITING_SWEEP,
+    BYPASS_BACK_UP,       
     BYPASS_TURN_OUT,
     BYPASS_DRIVE_PAST,
     BYPASS_TURN_BACK,
     BYPASS_REACQUIRE_LINE
 } bypass_state_t;
+typedef enum {
+    BC_ACT_NONE = 0,
+    BC_ACT_FORWARD,
+    BC_ACT_U_TURN,
+    BC_ACT_LEFT,
+    BC_ACT_RIGHT
+} bc_action_t;
 
-/* 1 = barcode detected, 0 = not detected */
+typedef struct {
+    char     letter;
+    uint16_t code9;
+} code39_alpha_t;
+
+static const code39_alpha_t CODE39_ALPHA[26] = {
+    { 'A', 0x109u }, { 'B', 0x049u }, { 'C', 0x148u }, { 'D', 0x019u },
+    { 'E', 0x118u }, { 'F', 0x058u }, { 'G', 0x00Du }, { 'H', 0x10Cu },
+    { 'I', 0x04Cu }, { 'J', 0x01Cu }, { 'K', 0x103u }, { 'L', 0x043u },
+    { 'M', 0x142u }, { 'N', 0x013u }, { 'O', 0x112u }, { 'P', 0x052u },
+    { 'Q', 0x007u }, { 'R', 0x106u }, { 'S', 0x046u }, { 'T', 0x016u },
+    { 'U', 0x181u }, { 'V', 0x0C1u }, { 'W', 0x1C0u }, { 'X', 0x091u },
+    { 'Y', 0x190u }, { 'Z', 0x0D0u }
+};
+
 static uint8_t barcode_detected = 0u;
+static uint8_t bc_pass_array[BC_MAX_STEPS] = {0};
+static uint8_t bc_pass_len = 0u;
+static char stored_barcode_char = '\0';
+static bc_action_t char_action_map[26] = {BC_ACT_NONE};
+
+static bool str_starts_with(const char *s, const char *prefix, uint32_t len)
+{
+    for (uint32_t i = 0u; i < len; i++) {
+        if (s[i] == '\0' || s[i] != prefix[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static const char *find_char_ptr(const char *s, char target)
+{
+    while (*s != '\0') {
+        if (*s == target) {
+            return s;
+        }
+        s++;
+    }
+    return 0;
+}
+
+void s3_set_char_action(char letter, bc_action_t action)
+{
+    if (letter >= 'a' && letter <= 'z') {
+        letter = (char)(letter - 'a' + 'A');
+    }
+    if (letter >= 'A' && letter <= 'Z') {
+        char_action_map[(uint32_t)(letter - 'A')] = action;
+    }
+}
+
+void s3_clear_action_map(void)
+{
+    for (uint32_t i = 0u; i < 26u; i++) {
+        char_action_map[i] = BC_ACT_NONE;
+    }
+}
+
+void s3_apply_mqtt_mapping(const char *payload)
+{
+    if (!payload) return;
+
+    s3_clear_action_map();
+
+    const char *p = payload;
+    while (*p != '\0') {
+        if (p[0] == 'F' && p[1] == '=') {
+            if (p[2] >= 'A' && p[2] <= 'Z') s3_set_char_action(p[2], BC_ACT_FORWARD);
+        } else if (p[0] == 'U' && p[1] == '=') {
+            if (p[2] >= 'A' && p[2] <= 'Z') s3_set_char_action(p[2], BC_ACT_U_TURN);
+        } else if (p[0] == 'L' && p[1] == '=') {
+            if (p[2] >= 'A' && p[2] <= 'Z') s3_set_char_action(p[2], BC_ACT_LEFT);
+        } else if (p[0] == 'R' && p[1] == '=') {
+            if (p[2] >= 'A' && p[2] <= 'Z') s3_set_char_action(p[2], BC_ACT_RIGHT);
+        } else if (str_starts_with(p, "\"forward\"", 9u)) {
+            const char *q = find_char_ptr(p + 9, ':');
+            if (q) {
+                const char *c = find_char_ptr(q, '"');
+                if (c && c[1] >= 'A' && c[1] <= 'Z') s3_set_char_action(c[1], BC_ACT_FORWARD);
+            }
+        } else if (str_starts_with(p, "\"uturn\"", 7u)) {
+            const char *q = find_char_ptr(p + 7, ':');
+            if (q) {
+                const char *c = find_char_ptr(q, '"');
+                if (c && c[1] >= 'A' && c[1] <= 'Z') s3_set_char_action(c[1], BC_ACT_U_TURN);
+            }
+        } else if (str_starts_with(p, "\"left\"", 6u)) {
+            const char *q = find_char_ptr(p + 6, ':');
+            if (q) {
+                const char *c = find_char_ptr(q, '"');
+                if (c && c[1] >= 'A' && c[1] <= 'Z') s3_set_char_action(c[1], BC_ACT_LEFT);
+            }
+        } else if (str_starts_with(p, "\"right\"", 7u)) {
+            const char *q = find_char_ptr(p + 7, ':');
+            if (q) {
+                const char *c = find_char_ptr(q, '"');
+                if (c && c[1] >= 'A' && c[1] <= 'Z') s3_set_char_action(c[1], BC_ACT_RIGHT);
+            }
+        }
+        p++;
+    }
+}
+
+// Ratio-based Code 39 decoder: resilient to line-following jitters and speed variations
+static char bc_decode_code39(const uint32_t *durs, uint8_t count)
+{
+    if (count < 18u) {
+        return '\0';
+    }
+
+    // Slide across edge windows to locate the data character block
+    for (uint8_t start_idx = 0u; start_idx + 9u <= count; start_idx++) {
+        uint32_t work[9];
+        bool valid = true;
+
+        for (uint8_t i = 0u; i < 9u; i++) {
+            work[i] = durs[start_idx + i];
+            if (work[i] < BC_MIN_EDGE_US) {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) continue;
+
+        // Find the shortest edge in this window to establish the baseline "narrow" stripe width
+        uint32_t min_dur = work[0];
+        for (uint8_t i = 1u; i < 9u; i++) {
+            if (work[i] < min_dur) {
+                min_dur = work[i];
+            }
+        }
+
+        // Code 39 wide-to-narrow ratio is nominally 2.0 to 3.0. 
+        // Anything >= 1.6 times the minimum duration is classified as Wide (1), 
+        // else Narrow (0). This ratio method completely cancels out speed jitters.
+        uint16_t computed_code = 0u;
+        for (uint8_t i = 0u; i < 9u; i++) {
+            computed_code <<= 1;
+            if (work[i] >= (min_dur * 16u / 10u)) {
+                computed_code |= 1u;
+            }
+        }
+
+        // Check if it matches 'A' (0x109u)
+        if (computed_code == 0x109u) {
+            return 'A';
+        }
+
+        // Match against any other A-Z lookup entry
+        for (uint8_t i = 0u; i < 26u; i++) {
+            if (CODE39_ALPHA[i].code9 == computed_code) {
+                return CODE39_ALPHA[i].letter;
+            }
+        }
+    }
+
+    return '\0';
+}
+
+static void bc_print_only_barcode(char ch, const uint32_t *durs, uint8_t count)
+{
+    if (ch >= 'A' && ch <= 'Z') {
+        tm_printf("Decoded Character: %c\n", ch);
+    } else {
+        tm_printf("Decoded Character: Unknown / Unmatched\n");
+    }
+
+    tm_printf("Stripe Durations (us): [");
+    for (uint8_t i = 0u; i < count; i++) {
+        tm_printf("%u%s", (unsigned int)durs[i], (i + 1u < count) ? "," : "");
+    }
+    tm_printf("]\n");
+}
 
 static void bc_track_pass(unsigned int right_val)
 {
     static uint8_t      active = 0u;
     static unsigned int prev_val = 1u;
     static uint32_t     last_edge_us = 0u;
-    static uint32_t     pass_start_us = 0u;
     static uint32_t     last_activity_us = 0u;
-    static uint32_t     bits_seen = 0u;
     static uint8_t      edge_cnt = 0u;
     static uint8_t      step_cnt = 0u;
     static uint8_t      step_state[BC_MAX_STEPS];
@@ -62,7 +230,6 @@ static void bc_track_pass(unsigned int right_val)
     uint32_t now_us = S5_TIMER_TIMELR;
     unsigned int cur = (right_val & 1u);
 
-    /* Start a barcode pass as soon as black (0) appears */
     if (!active)
     {
         if (cur == 0u)
@@ -70,23 +237,17 @@ static void bc_track_pass(unsigned int right_val)
             active = 1u;
             prev_val = 0u;
             last_edge_us = now_us;
-            pass_start_us = now_us;
             last_activity_us = now_us;
-            bits_seen = 0u;
             edge_cnt = 1u;
             step_cnt = 0u;
-
-            tm_printf("[BC-PASS] START black(0) at %lu us\n", (unsigned long)now_us);
         }
         return;
     }
 
-    /* Detect state change on R */
     if (cur != prev_val)
     {
         uint32_t dur_us = now_us - last_edge_us;
 
-        /* Ignore ultra-short glitches */
         if (dur_us >= BC_MIN_EDGE_US)
         {
             if (step_cnt < BC_MAX_STEPS)
@@ -96,7 +257,6 @@ static void bc_track_pass(unsigned int right_val)
                 step_cnt++;
             }
 
-            bits_seen = (bits_seen << 1) | cur;
             edge_cnt++;
             last_edge_us = now_us;
             last_activity_us = now_us;
@@ -105,46 +265,32 @@ static void bc_track_pass(unsigned int right_val)
     }
     else if (cur == 0u)
     {
-        /* Still on black (0) */
         last_activity_us = now_us;
     }
     else
     {
-        /* On white (1): finish pass once quiet for BC_PASS_END_US */
         if ((now_us - last_activity_us) >= BC_PASS_END_US)
         {
-            uint32_t end_white_us = (now_us - last_edge_us) - BC_PASS_END_US;
-            uint32_t total_pass_ms = (last_activity_us - pass_start_us) / 1000u;
-
             if (edge_cnt >= BC_MIN_BARCODE_EDGES)
             {
                 barcode_detected = 1u;
-                tm_printf("barcode found (barcode_detected=%u)\n", (unsigned int)barcode_detected);
+                bc_pass_len = step_cnt;
+                for (uint8_t i = 0u; i < step_cnt; i++)
+                {
+                    bc_pass_array[i] = step_state[i];
+                }
+
+                char decoded = bc_decode_code39(step_dur_us, step_cnt);
+                if (decoded >= 'A' && decoded <= 'Z')
+                {
+                    stored_barcode_char = decoded;
+                }
+                
+                bc_print_only_barcode(decoded, step_dur_us, step_cnt);
             }
             else
             {
                 barcode_detected = 0u;
-                tm_printf("barcode_detected=%u\n", (unsigned int)barcode_detected);
-            }
-
-            tm_printf("[BC-PASS] END: dur=%lu ms | edges=%u | bits=0x%lx | detected=%u\n",
-                      (unsigned long)total_pass_ms,
-                      (unsigned int)edge_cnt,
-                      (unsigned long)bits_seen,
-                      (unsigned int)barcode_detected);
-
-            for (uint8_t i = 0u; i < step_cnt; i++)
-            {
-                tm_printf("  seg[%u]: val=%u held=%lu us\n",
-                          (unsigned int)i,
-                          (unsigned int)step_state[i],
-                          (unsigned long)step_dur_us[i]);
-            }
-            if (end_white_us >= BC_MIN_EDGE_US && step_cnt < BC_MAX_STEPS)
-            {
-                tm_printf("  seg[%u]: val=1 held=%lu us (trailing)\n",
-                          (unsigned int)step_cnt,
-                          (unsigned long)end_white_us);
             }
 
             active = 0u;
@@ -174,7 +320,6 @@ EXPORT void consumer_task(INT stacd, void *exinf)
     while (1) {
         uint32_t now_us = S5_TIMER_TIMELR;
 
-        /* Buddy 4 pickup detection */
         if (s4_is_pickup_detected())
         {
             (void)motion_stop();
@@ -182,55 +327,66 @@ EXPORT void consumer_task(INT stacd, void *exinf)
             continue;
         }
 
-        /* 1. Check Subsystem 5 obstacle state or active bypass maneuver */
         if (subsystem5_is_blocked() || bypass_state != BYPASS_NONE) {
             if (!was_blocked && bypass_state == BYPASS_NONE) {
                 (void)motion_stop();
-                tm_putstring((const UB*)"[S3] Obstacle detected. Stopping longer & measuring width...\n");
+                tm_putstring((const UB*)"[S3] Obstacle detected. Scanning and backing up...\n");
                 was_blocked = true;
                 got_width = false;
                 bypass_state = BYPASS_WAITING_SWEEP;
                 step_start_us = now_us;
             }
 
+            // Step 1: Scan / Dwell
             if (bypass_state == BYPASS_WAITING_SWEEP) {
                 (void)motion_stop();
 
-                if (!got_width && subsystem5_get_obstacle_info(&obs_info)) {
-                    got_width = true;
+                S5_OBSTACLE_INFO sample_obs;
+                if (subsystem5_get_obstacle_info(&sample_obs)) {
+                    if (sample_obs.est_width_cm > 0.0f) {
+                        obs_info = sample_obs;
+                        got_width = true;
+                    }
                 }
 
-                /* Stay stopped for at least BYPASS_MIN_DWELL_MS and until obstacle width is read */
-                if (got_width && (((now_us - step_start_us) / 1000u) >= BYPASS_MIN_DWELL_MS)) {
+                if (((now_us - step_start_us) / 1000u) >= BYPASS_MIN_DWELL_MS) {
                     float width_cm = (obs_info.est_width_cm > 0.0f) ? obs_info.est_width_cm : obs_info.bypass_offset_cm;
                     uint32_t width_mm = (width_cm > 0.0f) ? (uint32_t)(width_cm * 10.0f) : 0u;
                     uint32_t offset_mm = (uint32_t)(obs_info.bypass_offset_cm * 10.0f);
                     uint32_t clearance_mm = ((width_mm > offset_mm) ? width_mm : offset_mm) + BYPASS_EXTRA_BERTH_MM;
 
                     drive_past_ms = (clearance_mm * 1000u) / (uint32_t)BYPASS_SPEED_MM_S;
-                    if (drive_past_ms < BYPASS_MIN_DRIVE_MS) {
-                        drive_past_ms = BYPASS_MIN_DRIVE_MS;
+                    if (drive_past_ms < 800u) {
+                        drive_past_ms = 800u;
                     }
                     if (drive_past_ms > BYPASS_MAX_DRIVE_MS) {
                         drive_past_ms = BYPASS_MAX_DRIVE_MS;
                     }
 
-                    tm_printf("[S3] Width~%d cm (+%u mm berth) -> straight=%lu ms, turn=%lu ms\n",
-                              (int)obs_info.est_width_cm,
-                              (unsigned int)BYPASS_EXTRA_BERTH_MM,
-                              (unsigned long)drive_past_ms,
-                              (unsigned long)BYPASS_TURN_MS);
-
-                    bypass_state = BYPASS_TURN_OUT;
+                    // Transition to backing up before turning out
+                    bypass_state = BYPASS_BACK_UP;
                     step_start_us = now_us;
                 }
                 tk_dly_tsk(25);
                 continue;
             }
 
+            // Step 2: Back up slightly to clear the object safely
+            if (bypass_state == BYPASS_BACK_UP) {
+                // Negative speed (-60) moves the robot backward
+                (void)motion_drive(-60, 0); 
+                if (((now_us - step_start_us) / 1000u) >= 500u) { // Back up for 500 ms
+                    bypass_state = BYPASS_TURN_OUT;
+                    step_start_us = now_us;
+                }
+                tk_dly_tsk(20);
+                continue;
+            }
+
+            // Step 3: Turn Right sharply to step out of the obstacle path
             if (bypass_state == BYPASS_TURN_OUT) {
-                (void)motion_drive(BYPASS_SPEED_MM_S, BYPASS_STEER_OUT);
-                if (((now_us - step_start_us) / 1000u) >= BYPASS_TURN_MS) {
+                (void)motion_drive(BYPASS_SPEED_MM_S, 50); 
+                if (((now_us - step_start_us) / 1000u) >= 700u) { 
                     bypass_state = BYPASS_DRIVE_PAST;
                     step_start_us = now_us;
                 }
@@ -238,6 +394,7 @@ EXPORT void consumer_task(INT stacd, void *exinf)
                 continue;
             }
 
+            // Step 4: Drive Straight parallel to the obstacle
             if (bypass_state == BYPASS_DRIVE_PAST) {
                 (void)motion_drive(BYPASS_SPEED_MM_S, 0);
                 if (((now_us - step_start_us) / 1000u) >= drive_past_ms) {
@@ -248,17 +405,18 @@ EXPORT void consumer_task(INT stacd, void *exinf)
                 continue;
             }
 
+            // Step 5: Turn Left back toward the track line
             if (bypass_state == BYPASS_TURN_BACK) {
-                (void)motion_drive(BYPASS_SPEED_MM_S, BYPASS_STEER_BACK);
-                if (((now_us - step_start_us) / 1000u) >= BYPASS_TURN_MS) {
+                (void)motion_drive(BYPASS_SPEED_MM_S, -80); 
+                if (((now_us - step_start_us) / 1000u) >= 700u) {
                     bypass_state = BYPASS_REACQUIRE_LINE;
                     step_start_us = now_us;
-                    tm_putstring((const UB*)"[S3] Reacquiring line (curving left)...\n");
                 }
                 tk_dly_tsk(20);
                 continue;
             }
 
+            // Step 6: Actively scan IR sensors until the track line is re-acquired
             if (bypass_state == BYPASS_REACQUIRE_LINE) {
                 left   = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_LEFT) & 1;
                 center = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_CENTER) & 1;
@@ -267,96 +425,95 @@ EXPORT void consumer_task(INT stacd, void *exinf)
                 bool found_line = (!left || !center || !right);
                 bool timed_out  = (((now_us - step_start_us) / 1000u) >= BYPASS_MAX_REACQ_MS);
 
-                /* Black = 0: rejoin line tracking once any IR sensor sees black, or on timeout */
                 if (found_line || timed_out) {
                     subsystem5_clear_obstacle_info();
                     was_blocked = false;
                     got_width = false;
                     bypass_state = BYPASS_NONE;
-                    tm_printf("[S3] Bypass %s (L:%u C:%u R:%u). Resuming line tracking.\n",
-                              found_line ? "rejoined line" : "timed out",
-                              left, center, right);
                     continue;
                 }
 
-                /* Gentle left curve toward the line instead of driving straight parallel */
-                (void)motion_drive(BYPASS_SPEED_MM_S, 20);
+                (void)motion_drive(BYPASS_SPEED_MM_S, -20);
                 tk_dly_tsk(20);
                 continue;
             }
-
-
         }
 
         if (was_blocked) {
-            tm_putstring((const UB*)"[S3] Path clear. Resuming movement.\n");
             was_blocked = false;
             got_width = false;
         }
 
-        /* 2. Read the 3 IR sensors */
         left   = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_LEFT) & 1;
         center = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_CENTER) & 1;
         right  = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_RIGHT) & 1;
 
-        bc_track_pass(right); /* barcode pass tracker */
+        bc_track_pass(right);
 
-        /* 3. Line Tracking & Motor Control via Subsystem 2 API (slower speed) */
-        int32_t base_speed = 80;   /* mm/s forward speed */
+        int32_t base_speed = 80;
         int32_t steer_term = 0;
         uint32_t now_ms = now_us / 1000u;
 
         if (left && center && ((now_ms - last_junc_ms) >= 600u || last_junc_ms == 0u)) {
             last_junc_ms = now_ms;
 
-            if (barcode_detected) {
-                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | Barcode=1 -> TurnLeft90\n",
-                           left, center, right);
-                tm_putstring(debug_buf);
+            if (stored_barcode_char == 'A') {
+                bc_action_t action = char_action_map[0];
 
-                /* Drive forward a few cm so the robot pivots right on the junction */
-                int32_t fwd_seq = motion_move_forward(90, base_speed);
-                if (fwd_seq > 0) {
-                    (void)motion_wait_done(fwd_seq, 2000);
+                switch (action) {
+                    case BC_ACT_FORWARD:
+                        {
+                            int32_t fwd_seq = motion_move_forward(90, base_speed);
+                            if (fwd_seq > 0) { (void)motion_wait_done(fwd_seq, 2000); }
+                        }
+                        break;
+                    case BC_ACT_LEFT:
+                        {
+                            int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 3000); }
+                        }
+                        break;
+                    case BC_ACT_RIGHT:
+                        {
+                            int32_t turn_seq = motion_turn_right(90, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 3000); }
+                        }
+                        break;
+                    case BC_ACT_U_TURN:
+                        {
+                            int32_t turn_seq = motion_turn_left(180, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 4000); }
+                        }
+                        break;
+                    case BC_ACT_NONE:
+                    default:
+                        {
+                            int32_t fwd_seq = motion_move_forward(90, base_speed);
+                            if (fwd_seq > 0) { (void)motion_wait_done(fwd_seq, 2000); }
+
+                            int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
+                            if (turn_seq > 0) { (void)motion_wait_done(turn_seq, 3000); }
+                        }
+                        break;
                 }
 
-                int32_t turn_seq = motion_turn_left(90, MOTION_DEFAULT_SPEED);
-                if (turn_seq > 0) {
-                    (void)motion_wait_done(turn_seq, 3000);
-                    last_junc_ms = S5_TIMER_TIMELR / 1000u;
-                }
-
-                /* Consume detection so it only triggers once */
-                barcode_detected = 0u;
+                stored_barcode_char = '\0';
             } else {
-                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] [JUNCTION] L:%u C:%u R:%u | Barcode=0 -> Skip Left Turn\n",
-                           left, center, right);
-                tm_putstring(debug_buf);
-
-                /* Continue straight through the junction when no barcode was detected */
                 (void)motion_drive(base_speed, 0);
+                stored_barcode_char = '\0';
             }
         } else {
             if (left && !center) {
-                steer_term = -30; //right
+                steer_term = -30;
             } else if (!left && center) {
-                steer_term = 30;  //left
+                steer_term = 30;
             } else {
                 steer_term = 0;
             }
 
-            /* Send continuous drive command safely without constant overrides */
             (void)motion_drive(base_speed, steer_term);
-
-            /* --- LIVE IR MONITORING PRINT STATEMENT (ONLY ON BLACK DETECTION) --- */
-            if (!left || !center || !right) {
-                tm_sprintf(debug_buf, (const UB*)"[IR-DEBUG] L:%u C:%u R:%u | Steer:%ld\n",
-                           left, center, right, (long)steer_term);
-                tm_putstring(debug_buf);
-            }
         }
 
-        /* 4. Check for a sample message with a 20 ms timeout */
         er = tk_rcv_mbx(mbx_samples, (T_MSG **)&msg, 20);
         
         if (er == E_OK) {
