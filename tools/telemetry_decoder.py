@@ -13,7 +13,7 @@ except ImportError:
 # INF2004 Buddy1 MQTT Telemetry Decoder
 # ============================================================
 
-BROKER = "10.82.83.75"
+BROKER = "10.97.208.187"
 PORT = 1883
 TOPIC = "buddy1/test"
 
