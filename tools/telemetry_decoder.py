@@ -30,6 +30,7 @@ INSTRUCTIONS = {
     1: "LEFT",
     2: "RIGHT",
     3: "STRAIGHT",
+    4: "UTURN",
 }
 
 TERRAINS = {
@@ -63,23 +64,62 @@ def decode_motor(data):
         f"encR={right_encoder}"
     )
 
+def decode_line(data):
+    # 03 | line_status
+    #
+    # bit 0 = left IR
+    # bit 1 = center IR
+    # bit 2 = right IR
+
+    if len(data) != 2:
+        return f"[LINE] invalid packet length={len(data)}"
+
+    status = data[1]
+
+    left = 1 if (status & 0x01) else 0
+    center = 1 if (status & 0x02) else 0
+    right = 1 if (status & 0x04) else 0
+
+    return (
+        f"[LINE] "
+        f"L={left} "
+        f"C={center} "
+        f"R={right}"
+    )
 
 def decode_barcode(data):
-    # 04 | barcode_history | last_instruction
+    # 04 | decoded ASCII character | action
+    #
+    # decoded:
+    #   A-Z = successfully decoded Code39 character
+    #   0   = no currently stored decoded barcode
+    #
+    # action:
+    #   0 = NONE
+    #   1 = LEFT
+    #   2 = RIGHT
+    #   3 = STRAIGHT
+    #   4 = UTURN
+
     if len(data) != 3:
         return f"[BARCODE] invalid packet length={len(data)}"
 
-    history = data[1]
-    instruction = data[2]
+    decoded = data[1]
+    action = data[2]
 
-    instruction_name = INSTRUCTIONS.get(
-        instruction,
-        f"UNKNOWN({instruction})"
+    action_name = INSTRUCTIONS.get(
+        action,
+        f"UNKNOWN({action})"
     )
 
+    if ord("A") <= decoded <= ord("Z"):
+        character = chr(decoded)
+    else:
+        character = "NONE"
+
     return (
-        f"[BARCODE] history=0x{history:02X} "
-        f"instruction={instruction_name}"
+        f"[BARCODE] decoded={character} "
+        f"action={action_name}"
     )
 
 
@@ -172,6 +212,9 @@ def decode_packet(data):
 
     if packet_type == 0x02:
         return decode_motor(data)
+
+    if packet_type == 0x03:
+        return decode_line(data)
 
     if packet_type == 0x04:
         return decode_barcode(data)

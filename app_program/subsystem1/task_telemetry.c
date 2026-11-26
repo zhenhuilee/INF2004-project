@@ -80,26 +80,50 @@ static void send_buddy5_telemetry(void)
 
 static void send_buddy3_telemetry(void)
 {
-    APP_STATS stats;
+    uint8_t line_payload[1];
     uint8_t barcode_payload[2];
+    char decoded;
 
     /*
-     * Buddy3 currently exposes:
-     * barcode_history
-     * last_instruction
+     * LINE packet:
      *
-     * Read only while holding mtx_stats.
+     * Byte 0 = BUDDY1_TLM_LINE (0x03)
+     *
+     * payload[0]:
+     *   bit 0 = left IR
+     *   bit 1 = center IR
+     *   bit 2 = right IR
      */
 
-    if (tk_loc_mtx(mtx_stats, TMO_FEVR) != E_OK)
-        return;
+    line_payload[0] = (uint8_t)s3_get_line_status();
 
-    stats = app_stats;
+    (void)buddy1_send_packet(
+        BUDDY1_TLM_LINE,
+        line_payload,
+        sizeof(line_payload)
+    );
 
-    tk_unl_mtx(mtx_stats);
+    /*
+     * BARCODE packet:
+     *
+     * Byte 0 = BUDDY1_TLM_BARCODE (0x04)
+     *
+     * payload[0] = decoded Code39 character
+     *              ASCII A-Z
+     *              0x00 = no decoded barcode
+     *
+     * payload[1] = action
+     *              0 = NONE
+     *              1 = LEFT
+     *              2 = RIGHT
+     *              3 = STRAIGHT
+     *              4 = U-TURN
+     */
 
-    barcode_payload[0] = (uint8_t)stats.barcode_history;
-    barcode_payload[1] = (uint8_t)stats.last_instruction;
+    decoded = s3_get_last_barcode_char();
+
+    barcode_payload[0] = (uint8_t)decoded;
+    barcode_payload[1] = (uint8_t)s3_get_barcode_action();
 
     (void)buddy1_send_packet(
         BUDDY1_TLM_BARCODE,
@@ -117,6 +141,7 @@ static void put_i32_le(uint8_t *dst, int32_t value)
     dst[2] = (uint8_t)(v >> 16);
     dst[3] = (uint8_t)(v >> 24);
 }
+
 static void send_buddy2_telemetry(void)
 {
     motion_status_t st;
@@ -134,7 +159,7 @@ static void send_buddy2_telemetry(void)
 
     /*
      * DISTANCE packet:
-     * byte 0      = BUDDY1_TLM_DISTANCE
+     * byte 0        = BUDDY1_TLM_DISTANCE
      * payload[0..3] = odometer distance in mm, signed int32 LE
      */
     uint8_t distance_payload[4];
@@ -195,6 +220,7 @@ EXPORT void buddy1_telemetry_task(INT stacd, void *exinf)
             payload,
             sizeof(payload)
         );
+
         send_buddy2_telemetry();
         send_buddy3_telemetry();
         send_buddy5_telemetry();

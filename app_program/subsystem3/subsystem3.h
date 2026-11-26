@@ -41,8 +41,14 @@ typedef struct {
 	UB	last_instruction;
 } APP_STATS;
 
-IMPORT ID		mtx_stats;
-IMPORT APP_STATS	app_stats;
+
+IMPORT ID               mtx_stats;
+IMPORT APP_STATS        app_stats;
+
+IMPORT UB   s3_get_line_status(void);
+IMPORT char s3_get_last_barcode_char(void);
+IMPORT UB   s3_get_barcode_action(void);
+
 
 /* Private to subsystem 3 */
 IMPORT void	consumer_task(INT stacd, void *exinf);

@@ -65,6 +65,9 @@ static uint8_t bc_pass_array[BC_MAX_STEPS] = {0};
 static uint8_t bc_pass_len = 0u;
 static char stored_barcode_char = '\0';
 
+/* Compact Buddy3 line-sensor snapshot for Buddy1 telemetry. */
+static volatile UB s3_line_status = 0u;
+
 /* Four single-character variables mapped to the four junction movements */
 static char bc_char_left    = 'A';
 static char bc_char_forward = 'B';
@@ -88,6 +91,43 @@ static char norm_upper_alpha(char ch)
         return ch;
     }
     return '\0';
+}
+
+UB s3_get_line_status(void)
+{
+    return s3_line_status;
+}
+
+char s3_get_last_barcode_char(void)
+{
+    return stored_barcode_char;
+}
+
+UB s3_get_barcode_action(void)
+{
+    char bc = norm_upper_alpha(stored_barcode_char);
+
+    if (bc == '\0') {
+        return S3_INST_NONE;
+    }
+
+    if (bc == bc_char_left) {
+        return S3_INST_LEFT;
+    }
+
+    if (bc == bc_char_right) {
+        return S3_INST_RIGHT;
+    }
+
+    if (bc == bc_char_forward) {
+        return S3_INST_STRAIGHT;
+    }
+
+    if (bc == bc_char_uturn) {
+        return 0x04u;
+    }
+
+    return S3_INST_NONE;
 }
 
 static bool str_starts_with(const char *s, const char *prefix, uint32_t len)
@@ -632,6 +672,11 @@ EXPORT void consumer_task(INT stacd, void *exinf)
         left   = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_LEFT) & 1;
         center = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_CENTER) & 1;
         right  = (*(volatile unsigned int*)(SIO_BASE + 0x004) >> S3_IR_PIN_RIGHT) & 1;
+
+        s3_line_status =
+            (UB)((left   ? 0x01u : 0x00u) |
+                 (center ? 0x02u : 0x00u) |
+                 (right  ? 0x04u : 0x00u));
 
         bc_track_pass(right);
 
